@@ -91,6 +91,17 @@ for module in (
     app.include_router(module.router)
 
 
+@app.get("/", tags=["System"])
+async def root():
+    return {
+        "status": "online",
+        "message": "Online Job Portal Backend API is running successfully",
+        "version": app.version,
+        "docs": "/docs",
+        "health": "/api/health",
+    }
+
+
 @app.get("/api/health", tags=["System"])
 async def health():
     from app.database.client import db
