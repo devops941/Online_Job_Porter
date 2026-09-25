@@ -1,0 +1,25 @@
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+*.log
+
+# Node & Frontend
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# Uploads & Temp
+backend/uploads/
+uploads/
+.DS_Store
