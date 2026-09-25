@@ -1,0 +1,212 @@
+// Online Job Portal - Prisma schema (MongoDB)
+// All database access happens through the FastAPI backend only.
+
+generator client {
+  provider  = "prisma-client-py"
+  interface = "asyncio"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String    @id @default(auto()) @map("_id") @db.ObjectId
+  email             String    @unique
+  passwordHash      String
+  fullName          String
+  phone             String?
+  role              String // admin | employer | job_seeker
+  isVerified        Boolean   @default(false)
+  isActive          Boolean   @default(true)
+  verificationToken String?
+  resetToken        String?
+  resetTokenExpiry  DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  jobSeekerProfile JobSeeker?
+  employerProfile  Employer?
+  notifications    Notification[]
+}
+
+model JobSeeker {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String   @unique @db.ObjectId
+  user            User     @relation(fields: [userId], references: [id])
+  headline        String?
+  summary         String?
+  location        String?
+  experienceYears Float    @default(0)
+  education       String?
+  skills          String[] @default([])
+  resumeUrl       String?
+  profileVisible  Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  applications Application[]
+  savedJobs    SavedJob[]
+}
+
+model Company {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  slug        String   @unique
+  logoUrl     String?
+  website     String?
+  description String?
+  location    String?
+  industry    String?
+  size        String?
+  isVerified  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  employers Employer[]
+  jobs      Job[]
+}
+
+model Employer {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String   @unique @db.ObjectId
+  user        User     @relation(fields: [userId], references: [id])
+  companyId   String?  @db.ObjectId
+  company     Company? @relation(fields: [companyId], references: [id])
+  designation String?
+  isApproved  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Category {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  jobs Job[]
+}
+
+model Skill {
+  id       String  @id @default(auto()) @map("_id") @db.ObjectId
+  name     String  @unique
+  category String?
+}
+
+model Job {
+  id               String    @id @default(auto()) @map("_id") @db.ObjectId
+  title            String
+  description      String
+  requirements     String?
+  responsibilities String?
+  companyId        String    @db.ObjectId
+  company          Company   @relation(fields: [companyId], references: [id])
+  categoryId       String?   @db.ObjectId
+  category         Category? @relation(fields: [categoryId], references: [id])
+  postedById       String    @db.ObjectId
+  employmentType   String    @default("full_time")
+  workMode         String    @default("onsite")
+  location         String
+  salaryMin        Float?
+  salaryMax        Float?
+  currency         String    @default("USD")
+  experienceMin    Float     @default(0)
+  experienceMax    Float?
+  skills           String[]  @default([])
+  vacancies        Int       @default(1)
+  status           String    @default("pending") // pending | approved | rejected | closed
+  rejectionReason  String?
+  deadline         DateTime?
+  views            Int       @default(0)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  applications Application[]
+  savedJobs    SavedJob[]
+  interviews   Interview[]
+}
+
+model Resume {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  jobSeekerId  String   @db.ObjectId
+  fileName     String
+  filePath     String
+  fileType     String
+  fileSize     Int
+  parsedSkills String[] @default([])
+  parsedText   String?
+  isPrimary    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+}
+
+model Application {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  jobId         String    @db.ObjectId
+  job           Job       @relation(fields: [jobId], references: [id])
+  jobSeekerId   String    @db.ObjectId
+  jobSeeker     JobSeeker @relation(fields: [jobSeekerId], references: [id])
+  resumeId      String?   @db.ObjectId
+  coverLetter   String?
+  status        String    @default("applied") // applied | under_review | shortlisted | rejected | interview | hired | withdrawn
+  matchScore    Float     @default(0)
+  employerNotes String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  interviews Interview[]
+
+  @@unique([jobId, jobSeekerId])
+}
+
+model SavedJob {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  jobId       String    @db.ObjectId
+  job         Job       @relation(fields: [jobId], references: [id])
+  jobSeekerId String    @db.ObjectId
+  jobSeeker   JobSeeker @relation(fields: [jobSeekerId], references: [id])
+  createdAt   DateTime  @default(now())
+
+  @@unique([jobId, jobSeekerId])
+}
+
+model Interview {
+  id            String      @id @default(auto()) @map("_id") @db.ObjectId
+  applicationId String      @db.ObjectId
+  application   Application @relation(fields: [applicationId], references: [id])
+  jobId         String      @db.ObjectId
+  job           Job         @relation(fields: [jobId], references: [id])
+  scheduledAt   DateTime
+  mode          String      @default("online") // online | onsite | phone
+  location      String?
+  meetingLink   String?
+  notes         String?
+  status        String      @default("scheduled") // scheduled | completed | cancelled
+  createdAt     DateTime    @default(now())
+}
+
+model Notification {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id])
+  title     String
+  message   String
+  type      String   @default("info") // info | job_alert | status_update | interview
+  isRead    Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
+}
+
+model JobAlert {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  jobSeekerId String   @db.ObjectId
+  keywords    String?
+  location    String?
+  categoryId  String?  @db.ObjectId
+  frequency   String   @default("daily")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}

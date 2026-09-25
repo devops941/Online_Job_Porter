@@ -1,0 +1,17 @@
+aiofiles
+bcrypt==4.0.1
+fastapi
+itsdangerous
+openpyxl
+passlib[bcrypt]
+prisma
+pydantic-settings
+pydantic[email]
+pypdf
+python-docx
+python-jose[cryptography]
+python-multipart
+reportlab
+scikit-learn
+spacy
+uvicorn[standard]
