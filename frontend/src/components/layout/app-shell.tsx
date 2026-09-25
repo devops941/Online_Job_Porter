@@ -24,6 +24,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { homeRouteFor, useAuth } from "@/context/auth-context";
 import { useUnreadNotifications } from "@/hooks/use-notifications";
 import { cn, initials, titleCase } from "@/lib/utils";
@@ -140,7 +148,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
 export function AppShell({ children }: { children?: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const unread = useUnreadNotifications(Boolean(user));
 
   return (
@@ -182,7 +191,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           >
             <Menu className="h-4 w-4" />
           </Button>
-          <div className="flex flex-1 items-center justify-end gap-2">
+          <div className="flex flex-1 items-center justify-end gap-3">
             <Button variant="ghost" size="icon" className="relative" asChild>
               <Link to="/notifications" aria-label="Notifications">
                 <Bell className="h-4 w-4" />
@@ -197,6 +206,57 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
               <Link to={homeRouteFor(user?.role)}>
                 <LayoutDashboard className="h-4 w-4" />
               </Link>
+            </Button>
+
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-8 w-8 rounded-full p-0">
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback>{initials(user.fullName)}</AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel className="space-y-1">
+                    <p className="text-sm font-medium">{user.fullName}</p>
+                    <p className="text-xs font-normal text-muted-foreground">{user.email}</p>
+                    <Badge variant="secondary" className="mt-1">
+                      {titleCase(user.role)}
+                    </Badge>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate(homeRouteFor(user.role))}>
+                    <Gauge className="mr-2 h-4 w-4" /> Dashboard
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/profile")}>
+                    <UserIcon className="mr-2 h-4 w-4" /> Profile
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                    onClick={() => {
+                      logout();
+                      navigate("/login");
+                    }}
+                  >
+                    <LogOut className="mr-2 h-4 w-4" /> Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+              onClick={() => {
+                logout();
+                navigate("/login");
+              }}
+            >
+              <LogOut className="h-4 w-4" />
+              <span className="hidden sm:inline">Logout</span>
             </Button>
           </div>
         </header>
