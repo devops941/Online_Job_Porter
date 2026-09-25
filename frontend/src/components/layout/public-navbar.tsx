@@ -142,9 +142,7 @@ export function PublicFooter() {
             Search roles, track applications and hire faster.
           </p>
         </div>
-        <p className="text-xs text-muted-foreground">
-          React + shadcn/ui front end, FastAPI + Prisma/MongoDB back end.
-        </p>
+
       </div>
     </footer>
   );

@@ -11,7 +11,7 @@ export default defineConfig({
   },
   server: {
     host: "0.0.0.0",
-    port: 12000,
+    port: 3000,
     // Dev tunnels/proxies reach the server under their own hostname, so allow
     // any host rather than hard-coding one tunnel URL.
     allowedHosts: true,
@@ -24,7 +24,7 @@ export default defineConfig({
   },
   preview: {
     host: "0.0.0.0",
-    port: 12000,
+    port: 3000,
     allowedHosts: true,
   },
 });

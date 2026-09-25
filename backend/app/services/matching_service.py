@@ -6,10 +6,16 @@ computed locally from the job seeker's profile, resumes and the job documents,
 so no external service is involved.
 """
 
+import math
 import re
+from collections import Counter
 
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
+try:
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.metrics.pairwise import cosine_similarity
+    HAS_SKLEARN = True
+except Exception:
+    HAS_SKLEARN = False
 
 
 def _normalise(skill: str) -> str:
@@ -26,16 +32,35 @@ def skill_overlap(seeker_skills: list[str], job_skills: list[str]) -> tuple[floa
     return len(matched) / len(required), matched, missing
 
 
+def _fallback_text_similarity(text1: str, text2: str) -> float:
+    words1 = re.findall(r"\w+", text1.lower())
+    words2 = re.findall(r"\w+", text2.lower())
+    if not words1 or not words2:
+        return 0.0
+    vec1 = Counter(words1)
+    vec2 = Counter(words2)
+    intersection = set(vec1.keys()) & set(vec2.keys())
+    numerator = sum(vec1[x] * vec2[x] for x in intersection)
+    sum1 = sum(v ** 2 for v in vec1.values())
+    sum2 = sum(v ** 2 for v in vec2.values())
+    denominator = math.sqrt(sum1) * math.sqrt(sum2)
+    if not denominator:
+        return 0.0
+    return float(numerator / denominator)
+
+
 def text_similarity(profile_text: str, job_text: str) -> float:
     if not profile_text.strip() or not job_text.strip():
         return 0.0
-    try:
-        matrix = TfidfVectorizer(stop_words="english", ngram_range=(1, 2)).fit_transform(
-            [profile_text, job_text]
-        )
-        return float(cosine_similarity(matrix[0:1], matrix[1:2])[0][0])
-    except ValueError:
-        return 0.0
+    if HAS_SKLEARN:
+        try:
+            matrix = TfidfVectorizer(stop_words="english", ngram_range=(1, 2)).fit_transform(
+                [profile_text, job_text]
+            )
+            return float(cosine_similarity(matrix[0:1], matrix[1:2])[0][0])
+        except Exception:
+            pass
+    return _fallback_text_similarity(profile_text, job_text)
 
 
 def combined_score(skill_score: float, text_score: float) -> float:
