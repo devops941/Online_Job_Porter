@@ -34,13 +34,21 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { homeRouteFor, useAuth } from "@/context/auth-context";
 import { useUnreadNotifications } from "@/hooks/use-notifications";
-import { cn, initials, titleCase } from "@/lib/utils";
+import { cn, initials } from "@/lib/utils";
 import type { Role } from "@/types";
 
 interface NavItem {
   to: string;
   label: string;
   icon: LucideIcon;
+}
+
+/** Maps the internal role value to a user-facing display label. */
+function roleDisplayLabel(role: Role): string {
+  if (role === "employer") return "Company";
+  if (role === "job_seeker") return "Job Seeker";
+  if (role === "admin") return "Admin";
+  return role;
 }
 
 const NAV: Record<Role, NavItem[]> = {
@@ -65,7 +73,7 @@ const NAV: Record<Role, NavItem[]> = {
   admin: [
     { to: "/admin", label: "Dashboard", icon: Gauge },
     { to: "/admin/moderation", label: "Job moderation", icon: ShieldCheck },
-    { to: "/admin/employers", label: "Employer approvals", icon: Building2 },
+    { to: "/admin/employers", label: "Company approvals", icon: Building2 },
     { to: "/admin/users", label: "Users", icon: Users },
     { to: "/admin/taxonomy", label: "Categories & skills", icon: Tags },
     { to: "/admin/reports", label: "Reports", icon: BarChart3 },
@@ -82,57 +90,65 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <div className="flex h-full flex-col gap-4">
+      {/* Logo / Brand */}
       <Link
         to={homeRouteFor(user.role)}
         onClick={onNavigate}
         className="flex items-center gap-2 px-2 font-semibold"
       >
-        <span className="rounded-md bg-primary p-1.5 text-primary-foreground">
+        <span className="rounded bg-primary p-1.5 text-primary-foreground">
           <Briefcase className="h-4 w-4" />
         </span>
-        <span className="text-sm">Online Job Portal</span>
+        <span className="text-sm font-semibold">Online Job Portal</span>
       </Link>
 
-      <div className="rounded-lg border bg-muted/40 p-3">
+      {/* User identity tile */}
+      <div className="rounded border bg-muted/40 p-3">
         <div className="flex items-center gap-3">
-          <Avatar className="h-9 w-9">
-            <AvatarFallback>{initials(user.fullName)}</AvatarFallback>
+          <Avatar className="h-8 w-8">
+            <AvatarFallback className="text-xs">{initials(user.fullName)}</AvatarFallback>
           </Avatar>
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium">{user.fullName}</p>
-            <Badge variant="secondary" className="mt-0.5">
-              {titleCase(user.role)}
+            <p className="truncate text-sm font-medium leading-tight">{user.fullName}</p>
+            <Badge variant="secondary" className="mt-0.5 text-[11px]">
+              {roleDisplayLabel(user.role)}
             </Badge>
           </div>
         </div>
       </div>
 
-      <nav className="flex-1 space-y-1 overflow-y-auto">
-        {items.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.to === homeRouteFor(user.role)}
-            onClick={onNavigate}
-            className={({ isActive }) =>
-              cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground",
-              )
-            }
-          >
-            <item.icon className="h-4 w-4 shrink-0" />
-            {item.label}
-          </NavLink>
-        ))}
+      {/* Nav items */}
+      <nav className="flex-1 overflow-y-auto">
+        <ul className="space-y-0.5">
+          {items.map((item) => (
+            <li key={item.to}>
+              <NavLink
+                to={item.to}
+                end={item.to === homeRouteFor(user.role)}
+                onClick={onNavigate}
+                className={({ isActive }) =>
+                  cn(
+                    "flex items-center gap-3 rounded px-3 py-2 text-sm font-medium transition-colors",
+                    isActive
+                      ? "bg-muted text-primary border-l-2 border-primary pl-[10px]"
+                      : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                  )
+                }
+              >
+                <item.icon className="h-4 w-4 shrink-0" />
+                {item.label}
+              </NavLink>
+            </li>
+          ))}
+        </ul>
       </nav>
 
       <Separator />
+
+      {/* Sign out */}
       <Button
         variant="ghost"
-        className="justify-start gap-3 text-muted-foreground"
+        className="justify-start gap-3 text-muted-foreground hover:text-foreground"
         onClick={() => {
           logout();
           onNavigate?.();
@@ -153,19 +169,21 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   const unread = useUnreadNotifications(Boolean(user));
 
   return (
-    <div className="flex min-h-screen bg-muted/20">
-      <aside className="hidden w-64 shrink-0 border-r bg-background p-4 lg:block">
+    <div className="flex min-h-screen bg-background">
+      {/* Desktop sidebar */}
+      <aside className="hidden w-60 shrink-0 border-r bg-card p-4 lg:block">
         <SidebarContent />
       </aside>
 
+      {/* Mobile drawer */}
       {mobileOpen ? (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div
-            className="absolute inset-0 bg-black/60"
+            className="absolute inset-0 bg-black/50"
             onClick={() => setMobileOpen(false)}
             aria-hidden
           />
-          <aside className="absolute left-0 top-0 h-full w-72 border-r bg-background p-4">
+          <aside className="absolute left-0 top-0 h-full w-64 border-r bg-card p-4">
             <Button
               variant="ghost"
               size="icon"
@@ -180,8 +198,10 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         </div>
       ) : null}
 
+      {/* Main area */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-3 border-b bg-background px-4">
+        {/* Top bar */}
+        <header className="sticky top-0 z-30 flex h-13 items-center justify-between gap-3 border-b bg-card px-4 h-[52px]">
           <Button
             variant="ghost"
             size="icon"
@@ -191,8 +211,10 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           >
             <Menu className="h-4 w-4" />
           </Button>
-          <div className="flex flex-1 items-center justify-end gap-3">
-            <Button variant="ghost" size="icon" className="relative" asChild>
+
+          <div className="flex flex-1 items-center justify-end gap-2">
+            {/* Notification bell */}
+            <Button variant="ghost" size="icon" className="relative h-8 w-8" asChild>
               <Link to="/notifications" aria-label="Notifications">
                 <Bell className="h-4 w-4" />
                 {unread.data ? (
@@ -202,18 +224,21 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                 ) : null}
               </Link>
             </Button>
-            <Button variant="ghost" size="icon" asChild aria-label="Dashboard">
+
+            {/* Dashboard shortcut */}
+            <Button variant="ghost" size="icon" className="h-8 w-8" asChild aria-label="Dashboard">
               <Link to={homeRouteFor(user?.role)}>
                 <LayoutDashboard className="h-4 w-4" />
               </Link>
             </Button>
 
+            {/* User dropdown */}
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-8 w-8 rounded-full p-0">
                     <Avatar className="h-8 w-8">
-                      <AvatarFallback>{initials(user.fullName)}</AvatarFallback>
+                      <AvatarFallback className="text-xs">{initials(user.fullName)}</AvatarFallback>
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
@@ -221,8 +246,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                   <DropdownMenuLabel className="space-y-1">
                     <p className="text-sm font-medium">{user.fullName}</p>
                     <p className="text-xs font-normal text-muted-foreground">{user.email}</p>
-                    <Badge variant="secondary" className="mt-1">
-                      {titleCase(user.role)}
+                    <Badge variant="secondary" className="mt-1 text-[11px]">
+                      {roleDisplayLabel(user.role)}
                     </Badge>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
@@ -240,27 +265,29 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                       navigate("/login");
                     }}
                   >
-                    <LogOut className="mr-2 h-4 w-4" /> Logout
+                    <LogOut className="mr-2 h-4 w-4" /> Sign out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : null}
 
+            {/* Quick sign-out button */}
             <Button
               variant="outline"
               size="sm"
-              className="gap-2 text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+              className="h-8 gap-2 border-border text-muted-foreground hover:text-foreground"
               onClick={() => {
                 logout();
                 navigate("/login");
               }}
             >
-              <LogOut className="h-4 w-4" />
-              <span className="hidden sm:inline">Logout</span>
+              <LogOut className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline text-xs">Sign out</span>
             </Button>
           </div>
         </header>
 
+        {/* Page content */}
         <main className="flex-1 p-4 sm:p-6">
           <div className="mx-auto w-full max-w-6xl space-y-6">
             {children ?? <Outlet />}

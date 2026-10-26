@@ -229,6 +229,8 @@ class JobOut(ORMModel):
     updatedAt: datetime
     company: CompanyOut | None = None
     category: CategoryOut | None = None
+    matchScore: float | None = None
+    matchedSkills: list[str] | None = None
 
 
 class JobStatusUpdate(BaseModel):

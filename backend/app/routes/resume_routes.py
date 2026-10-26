@@ -2,25 +2,34 @@ import os
 import uuid
 from pathlib import Path
 
-from fastapi import Depends, APIRouter, File, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi import Depends, APIRouter, File, Form, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse, Response
 
 from app.auth import CurrentUser, require_job_seeker
 from app.config import settings
 from app.database.client import db
 from app.schemas import Message, ResumeOut
+from app.services import cloudinary_service
 from app.services.resume_service import ResumeParseError, parse_resume
 
 router = APIRouter(prefix="/api/resumes", tags=["Resumes"])
 
-ALLOWED_EXTENSIONS = {".pdf", ".docx", ".doc"}
+ALLOWED_EXTENSIONS = {".pdf", ".docx", ".doc", ".txt", ".rtf"}
 ALLOWED_CONTENT_TYPES = {
     "application/pdf",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     "application/msword",
     "application/octet-stream",
+    "text/plain",
+    "application/rtf",
+    "text/rtf",
 }
-MAGIC = {b"%PDF": ".pdf", b"PK\x03\x04": ".docx", b"\xd0\xcf\x11\xe0": ".doc"}
+MAGIC = {
+    b"%PDF": ".pdf",
+    b"PK\x03\x04": ".docx",
+    b"\xd0\xcf\x11\xe0": ".doc",
+    b"{\\rtf": ".rtf",
+}
 
 
 async def _seeker_for(user_id: str):
@@ -31,19 +40,12 @@ async def _seeker_for(user_id: str):
 
 
 async def _display_skills(parsed: list[str]) -> list[str]:
-    """Map parser output onto the taxonomy's display names.
-
-    The parser emits canonical lowercase keys; the skills collection holds the
-    human-readable labels shown across the UI. Unknown keys fall back to the
-    parser's own casing so custom vocabulary still round-trips.
-    """
     catalog = await db.skill.find_many()
     labels = {s.name.lower(): s.name for s in catalog}
     return [labels.get(skill.lower(), skill) for skill in parsed]
 
 
 def _merge_skills(existing: list[str], incoming: list[str]) -> list[str]:
-    """Union two skill lists without introducing case-only duplicates."""
     merged = list(existing)
     seen = {skill.lower() for skill in existing}
     for skill in incoming:
@@ -60,13 +62,21 @@ def _upload_root() -> Path:
 
 
 @router.post("/upload", response_model=ResumeOut, status_code=201, dependencies=[Depends(require_job_seeker)])
-async def upload_resume(user: CurrentUser, file: UploadFile = File(...)):
+async def upload_resume(
+    user: CurrentUser,
+    file: UploadFile = File(...),
+    isPrimary: bool = Form(False),
+    customTitle: str | None = Form(None),
+):
     seeker = await _seeker_for(user.id)
     filename = file.filename or "resume"
     extension = os.path.splitext(filename)[1].lower()
 
     if extension not in ALLOWED_EXTENSIONS:
-        raise HTTPException(status_code=400, detail="Only PDF and DOCX files are allowed")
+        raise HTTPException(
+            status_code=400,
+            detail="Only PDF (.pdf), Word (.docx, .doc), Text (.txt), and RTF (.rtf) files are allowed",
+        )
     if file.content_type and file.content_type not in ALLOWED_CONTENT_TYPES:
         raise HTTPException(status_code=400, detail="Unsupported file content type")
 
@@ -79,10 +89,13 @@ async def upload_resume(user: CurrentUser, file: UploadFile = File(...)):
             status_code=413, detail=f"File exceeds the {settings.max_upload_mb} MB limit"
         )
 
-    # Verify the real file signature rather than trusting the extension alone.
+    # Verify signature or allow plain text
     detected = next((ext for magic, ext in MAGIC.items() if content.startswith(magic)), None)
     if detected is None:
-        raise HTTPException(status_code=400, detail="File content is not a valid PDF or DOCX")
+        if extension == ".txt":
+            detected = ".txt"
+        else:
+            raise HTTPException(status_code=400, detail="File content is not a valid PDF, Word, or RTF document")
 
     try:
         text, parsed = parse_resume(filename, content)
@@ -91,29 +104,43 @@ async def upload_resume(user: CurrentUser, file: UploadFile = File(...)):
 
     skills = await _display_skills(parsed)
 
-    stored_name = f"{seeker.id}-{uuid.uuid4().hex}{detected}"
-    destination = _upload_root() / stored_name
-    destination.write_bytes(content)
+    # Custom title or original filename
+    display_filename = filename
+    if customTitle and customTitle.strip():
+        clean_title = customTitle.strip()
+        display_filename = f"{clean_title}{extension}" if not clean_title.lower().endswith(extension) else clean_title
+
+    # Upload document to Cloudinary
+    cld_result = cloudinary_service.upload_resume_file(content, display_filename, seeker.id)
+    stored_path = cld_result["secure_url"]
 
     has_primary = await db.resume.find_first(where={"jobSeekerId": seeker.id, "isPrimary": True})
+    make_primary = isPrimary or not bool(has_primary)
+
+    if make_primary:
+        await db.resume.update_many(where={"jobSeekerId": seeker.id}, data={"isPrimary": False})
+
     resume = await db.resume.create(
         data={
             "jobSeekerId": seeker.id,
-            "fileName": filename,
-            "filePath": stored_name,
+            "fileName": display_filename,
+            "filePath": stored_path,
             "fileType": (file.content_type or detected),
             "fileSize": len(content),
             "parsedText": text[:20000],
             "parsedSkills": skills,
-            "isPrimary": not bool(has_primary),
+            "isPrimary": make_primary,
         }
     )
 
     # Keep the seeker's skill list in sync with what the resume states.
     merged = _merge_skills(seeker.skills or [], skills)
+    update_data: dict = {"skills": merged}
+    if make_primary:
+        update_data["resumeUrl"] = stored_path
     await db.jobseeker.update(
         where={"id": seeker.id},
-        data={"resumeUrl": stored_name, "skills": merged},
+        data=update_data,
     )
     return resume
 
@@ -138,7 +165,7 @@ async def set_primary(resume_id: str, user: CurrentUser):
 
 
 @router.get("/{resume_id}/download")
-async def download_resume(resume_id: str, user: CurrentUser):
+async def download_resume(resume_id: str, user: CurrentUser, inline: bool = False):
     resume = await db.resume.find_unique(where={"id": resume_id})
     if not resume:
         raise HTTPException(status_code=404, detail="Resume not found")
@@ -157,10 +184,33 @@ async def download_resume(resume_id: str, user: CurrentUser):
     if not allowed:
         raise HTTPException(status_code=403, detail="You cannot access this resume")
 
+    disposition = f'inline; filename="{resume.fileName}"' if inline else f'attachment; filename="{resume.fileName}"'
+    content_type = resume.fileType or "application/octet-stream"
+    if resume.fileName.lower().endswith(".pdf"):
+        content_type = "application/pdf"
+    elif resume.fileName.lower().endswith(".txt"):
+        content_type = "text/plain; charset=utf-8"
+
+    # If stored in Cloudinary, fetch the remote bytes and stream to client with filename
+    if resume.filePath.startswith("http://") or resume.filePath.startswith("https://"):
+        try:
+            file_bytes = cloudinary_service.fetch_remote_file(resume.filePath)
+            headers = {
+                "Content-Disposition": disposition,
+            }
+            return Response(
+                content=file_bytes,
+                media_type=content_type,
+                headers=headers,
+            )
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail="Failed to fetch resume from storage") from exc
+
+    # Legacy local file fallback
     path = _upload_root() / resume.filePath
     if not path.exists():
         raise HTTPException(status_code=404, detail="Resume file is missing on the server")
-    return FileResponse(path, filename=resume.fileName, media_type=resume.fileType)
+    return FileResponse(path, filename=resume.fileName, media_type=content_type, headers={"Content-Disposition": disposition})
 
 
 @router.delete("/{resume_id}", response_model=Message, dependencies=[Depends(require_job_seeker)])
@@ -170,8 +220,13 @@ async def delete_resume(resume_id: str, user: CurrentUser):
     if not resume:
         raise HTTPException(status_code=404, detail="Resume not found")
 
-    path = _upload_root() / resume.filePath
-    path.unlink(missing_ok=True)
+    # Delete from Cloudinary if remote, or unlink if local file
+    if resume.filePath.startswith("http://") or resume.filePath.startswith("https://"):
+        cloudinary_service.delete_file(resume.filePath, resource_type="raw")
+    else:
+        path = _upload_root() / resume.filePath
+        path.unlink(missing_ok=True)
+
     await db.resume.delete(where={"id": resume_id})
 
     if resume.isPrimary:

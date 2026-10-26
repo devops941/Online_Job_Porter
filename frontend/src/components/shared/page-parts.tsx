@@ -13,9 +13,9 @@ export function PageHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between border-b pb-4">
+      <div className="space-y-0.5">
+        <h1 className="text-xl font-semibold tracking-tight text-foreground">{title}</h1>
         {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
       </div>
       {action}
@@ -39,11 +39,11 @@ export function EmptyState({
   return (
     <Card className="border-dashed">
       <CardContent className="flex flex-col items-center justify-center gap-3 py-14 text-center">
-        <div className="rounded-full bg-muted p-3">
-          <Icon className="h-6 w-6 text-muted-foreground" />
+        <div className="rounded-md bg-muted p-3">
+          <Icon className="h-5 w-5 text-muted-foreground" />
         </div>
         <div className="space-y-1">
-          <p className="font-medium">{title}</p>
+          <p className="font-medium text-sm">{title}</p>
           {description ? (
             <p className="max-w-sm text-sm text-muted-foreground">{description}</p>
           ) : null}
@@ -80,22 +80,20 @@ export function StatCard({
   icon?: LucideIcon;
 }) {
   return (
-    <Card>
-      <CardContent className="flex items-start justify-between gap-3 p-5">
-        <div className="space-y-1">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            {label}
-          </p>
-          <p className="text-2xl font-semibold tabular-nums">{value}</p>
-          {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
+    <div className="rounded-lg border bg-card p-5 flex items-start justify-between gap-3">
+      <div className="space-y-1">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          {label}
+        </p>
+        <p className="text-2xl font-semibold tabular-nums text-foreground">{value}</p>
+        {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
+      </div>
+      {Icon ? (
+        <div className="rounded-md bg-muted p-2">
+          <Icon className="h-4 w-4 text-muted-foreground" />
         </div>
-        {Icon ? (
-          <div className="rounded-md bg-muted p-2">
-            <Icon className="h-4 w-4 text-muted-foreground" />
-          </div>
-        ) : null}
-      </CardContent>
-    </Card>
+      ) : null}
+    </div>
   );
 }
 
@@ -103,16 +101,16 @@ export function SkillChips({ skills, limit }: { skills: string[]; limit?: number
   const shown = limit ? skills.slice(0, limit) : skills;
   const rest = limit ? skills.length - shown.length : 0;
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <div className="flex flex-wrap gap-1">
       {shown.map((skill) => (
         <span
           key={skill}
-          className="rounded-md bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground"
+          className="rounded border border-border bg-muted/60 px-2 py-0.5 text-xs font-medium text-muted-foreground"
         >
           {skill}
         </span>
       ))}
-      {rest > 0 ? <span className="text-xs text-muted-foreground">+{rest} more</span> : null}
+      {rest > 0 ? <span className="text-xs text-muted-foreground self-center">+{rest} more</span> : null}
     </div>
   );
 }

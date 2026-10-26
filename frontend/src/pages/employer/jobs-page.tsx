@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Briefcase, Eye, Pencil, Plus, Trash2, Users } from "lucide-react";
+import { Briefcase, Eye, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,9 +23,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AppShell } from "@/components/layout/app-shell";
-import { EmptyState, PageHeader } from "@/components/shared/page-parts";
+import { EmptyState, PageHeader, TableSkeleton } from "@/components/shared/page-parts";
 import { JobStatusBadge } from "@/components/shared/status-badges";
-import { Skeleton } from "@/components/ui/skeleton";
 import { apiErrorMessage } from "@/lib/api";
 import { jobApi, taxonomyApi } from "@/lib/api-client";
 import { formatDate, formatSalary, titleCase } from "@/lib/utils";
@@ -172,7 +170,7 @@ export default function EmployerJobsPage() {
   return (
     <AppShell>
       <PageHeader
-        title="My job posts"
+        title="Job posts"
         description="Create, edit and close your openings. New posts are reviewed by an admin."
         action={
           <Button
@@ -187,76 +185,102 @@ export default function EmployerJobsPage() {
       />
 
       {jobs.isLoading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <Skeleton key={index} className="h-28 w-full" />
-          ))}
+        <div className="rounded-lg border bg-card">
+          <div className="border-b px-5 py-3.5">
+            <div className="h-4 w-32 rounded bg-muted" />
+          </div>
+          <div className="p-4">
+            <TableSkeleton rows={5} />
+          </div>
         </div>
       ) : jobs.data?.items.length ? (
         <>
-          <div className="space-y-3">
-            {jobs.data.items.map((job) => (
-              <Card key={job.id}>
-                <CardContent className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="min-w-0 space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Link
-                        to={`/jobs/${job.id}`}
-                        className="font-medium hover:text-primary hover:underline"
-                      >
-                        {job.title}
-                      </Link>
-                      <JobStatusBadge status={job.status} />
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {job.location} · {titleCase(job.employmentType)} ·{" "}
+          <div className="rounded-lg border bg-card">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/40 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  <th className="px-5 py-3 text-left">Title</th>
+                  <th className="hidden px-5 py-3 text-left md:table-cell">Type / Mode</th>
+                  <th className="hidden px-5 py-3 text-left lg:table-cell">Salary</th>
+                  <th className="hidden px-5 py-3 text-left xl:table-cell">Posted</th>
+                  <th className="hidden px-5 py-3 text-left xl:table-cell">Deadline</th>
+                  <th className="px-5 py-3 text-left">Status</th>
+                  <th className="px-5 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {jobs.data.items.map((job) => (
+                  <tr
+                    key={job.id}
+                    className="border-b last:border-0 hover:bg-muted/40 transition-colors"
+                  >
+                    <td className="px-5 py-3.5">
+                      <div className="space-y-0.5">
+                        <Link
+                          to={`/jobs/${job.id}`}
+                          className="font-medium hover:text-primary hover:underline"
+                        >
+                          {job.title}
+                        </Link>
+                        <p className="text-xs text-muted-foreground">{job.location}</p>
+                        {job.status === "rejected" && job.rejectionReason ? (
+                          <p className="mt-1 rounded bg-destructive/10 px-2 py-0.5 text-xs text-destructive">
+                            Rejected: {job.rejectionReason}
+                          </p>
+                        ) : null}
+                      </div>
+                    </td>
+                    <td className="hidden px-5 py-3.5 text-muted-foreground md:table-cell">
+                      <span>{titleCase(job.employmentType)}</span>
+                      <span className="mx-1 text-border">·</span>
+                      <span>{titleCase(job.workMode)}</span>
+                    </td>
+                    <td className="hidden px-5 py-3.5 text-muted-foreground lg:table-cell">
                       {formatSalary(job.salaryMin, job.salaryMax, job.currency)}
-                    </p>
-                    <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Users className="h-3.5 w-3.5" />
-                        {job.views} views
-                      </span>
-                      <span>Posted {formatDate(job.createdAt)}</span>
-                      {job.deadline ? <span>Closes {formatDate(job.deadline)}</span> : null}
-                      {job.skills?.length ? <span>{job.skills.length} skills</span> : null}
-                    </div>
-                    {job.status === "rejected" && job.rejectionReason ? (
-                      <p className="rounded-md bg-destructive/10 px-2 py-1 text-xs text-destructive">
-                        Rejected: {job.rejectionReason}
-                      </p>
-                    ) : null}
-                  </div>
-
-                  <div className="flex shrink-0 flex-wrap items-center gap-2">
-                    <Button variant="outline" size="sm" asChild>
-                      <Link to={`/employer/applicants?jobId=${job.id}`}>
-                        <Eye /> Applicants
-                      </Link>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setEditing(job);
-                        setDialogOpen(true);
-                      }}
-                    >
-                      <Pencil /> Edit
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label="Close job"
-                      disabled={close.isPending}
-                      onClick={() => close.mutate(job)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                    </td>
+                    <td className="hidden px-5 py-3.5 text-muted-foreground xl:table-cell">
+                      {formatDate(job.createdAt)}
+                    </td>
+                    <td className="hidden px-5 py-3.5 text-muted-foreground xl:table-cell">
+                      {job.deadline ? formatDate(job.deadline) : <span className="text-border">—</span>}
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <JobStatusBadge status={job.status} />
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Button variant="outline" size="sm" asChild>
+                          <Link to={`/employer/applicants?jobId=${job.id}`}>
+                            <Eye className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">Applicants</span>
+                          </Link>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setEditing(job);
+                            setDialogOpen(true);
+                          }}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                          <span className="hidden sm:inline">Edit</span>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Close job"
+                          disabled={close.isPending}
+                          onClick={() => close.mutate(job)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
 
           {jobs.data.pages > 1 ? (
@@ -303,7 +327,7 @@ export default function EmployerJobsPage() {
           if (!open) setEditing(null);
         }}
       >
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editing ? "Edit job post" : "Create a job post"}</DialogTitle>
             <DialogDescription>
@@ -414,9 +438,9 @@ export default function EmployerJobsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {WORK_MODES.map((mode) => (
-                    <SelectItem key={mode} value={mode}>
-                      {titleCase(mode)}
+                  {WORK_MODES.map((wm) => (
+                    <SelectItem key={wm} value={wm}>
+                      {titleCase(wm)}
                     </SelectItem>
                   ))}
                 </SelectContent>

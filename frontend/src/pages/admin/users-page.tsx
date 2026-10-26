@@ -4,7 +4,6 @@ import { Ban, CheckCircle2, Search, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -22,15 +21,22 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { AppShell } from "@/components/layout/app-shell";
-import { EmptyState, PageHeader } from "@/components/shared/page-parts";
-import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState, PageHeader, TableSkeleton } from "@/components/shared/page-parts";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { apiErrorMessage } from "@/lib/api";
 import { userApi } from "@/lib/api-client";
-import { formatDate, initials, titleCase } from "@/lib/utils";
+import { formatDate, initials } from "@/lib/utils";
 import type { Role, User } from "@/types";
 
 const ROLES: (Role | "all")[] = ["all", "job_seeker", "employer", "admin"];
+
+/** Display label for a role value — role==="employer" shows as "Company". */
+function roleLabel(role: string): string {
+  if (role === "employer") return "Company";
+  if (role === "job_seeker") return "Job Seeker";
+  if (role === "admin") return "Admin";
+  return role;
+}
 
 export default function AdminUsersPage() {
   const queryClient = useQueryClient();
@@ -84,6 +90,7 @@ export default function AdminUsersPage() {
         description="Search accounts, suspend abusive users and manage roles."
       />
 
+      {/* Filters */}
       <div className="flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -110,51 +117,63 @@ export default function AdminUsersPage() {
           <SelectContent>
             {ROLES.map((option) => (
               <SelectItem key={option} value={option}>
-                {option === "all" ? "All roles" : titleCase(option)}
+                {option === "all" ? "All roles" : roleLabel(option)}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
 
+      {/* Table */}
       {users.isLoading ? (
-        <div className="space-y-2">
-          {Array.from({ length: 6 }).map((_, index) => (
-            <Skeleton key={index} className="h-16 w-full" />
-          ))}
-        </div>
+        <TableSkeleton rows={6} />
       ) : users.data?.items.length ? (
         <>
-          <Card>
-            <CardContent className="overflow-x-auto p-0">
+          <div className="rounded-lg border bg-card">
+            <div className="overflow-x-auto">
               <table className="w-full min-w-[720px] text-sm">
                 <thead>
-                  <tr className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
-                    <th className="px-4 py-3 font-medium">User</th>
-                    <th className="px-4 py-3 font-medium">Role</th>
-                    <th className="px-4 py-3 font-medium">Status</th>
-                    <th className="px-4 py-3 font-medium">Joined</th>
-                    <th className="px-4 py-3 text-right font-medium">Actions</th>
+                  <tr className="border-b bg-muted/40 text-left">
+                    <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      User
+                    </th>
+                    <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Role
+                    </th>
+                    <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Status
+                    </th>
+                    <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Joined
+                    </th>
+                    <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y">
                   {users.data.items.map((user) => (
-                    <tr key={user.id} className="border-b last:border-0 hover:bg-muted/40">
-                      <td className="px-4 py-3">
+                    <tr key={user.id} className="hover:bg-muted/40">
+                      {/* User */}
+                      <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-semibold">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground">
                             {initials(user.fullName)}
                           </div>
                           <div className="min-w-0">
-                            <p className="truncate font-medium">{user.fullName}</p>
+                            <p className="truncate font-medium text-foreground">{user.fullName}</p>
                             <p className="truncate text-xs text-muted-foreground">{user.email}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3">
-                        <Badge variant="secondary">{titleCase(user.role)}</Badge>
+
+                      {/* Role — display "Company" when role==="employer" */}
+                      <td className="px-5 py-3.5">
+                        <Badge variant="secondary">{roleLabel(user.role)}</Badge>
                       </td>
-                      <td className="px-4 py-3">
+
+                      {/* Status */}
+                      <td className="px-5 py-3.5">
                         <div className="flex flex-wrap gap-1.5">
                           <Badge variant={user.isActive ? "success" : "destructive"}>
                             {user.isActive ? "Active" : "Suspended"}
@@ -166,10 +185,14 @@ export default function AdminUsersPage() {
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">
+
+                      {/* Joined */}
+                      <td className="px-5 py-3.5 text-sm text-muted-foreground">
                         {formatDate(user.createdAt)}
                       </td>
-                      <td className="px-4 py-3">
+
+                      {/* Actions */}
+                      <td className="px-5 py-3.5">
                         <div className="flex justify-end gap-1">
                           {user.role !== "admin" ? (
                             <>
@@ -183,11 +206,11 @@ export default function AdminUsersPage() {
                               >
                                 {user.isActive ? (
                                   <>
-                                    <Ban /> Suspend
+                                    <Ban className="h-3.5 w-3.5" /> Suspend
                                   </>
                                 ) : (
                                   <>
-                                    <CheckCircle2 /> Reinstate
+                                    <CheckCircle2 className="h-3.5 w-3.5" /> Reinstate
                                   </>
                                 )}
                               </Button>
@@ -209,9 +232,10 @@ export default function AdminUsersPage() {
                   ))}
                 </tbody>
               </table>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
+          {/* Pagination */}
           {users.data.pages > 1 ? (
             <div className="flex items-center justify-center gap-3">
               <Button
@@ -244,6 +268,7 @@ export default function AdminUsersPage() {
         />
       )}
 
+      {/* Delete confirmation dialog */}
       <Dialog open={Boolean(pendingDelete)} onOpenChange={() => setPendingDelete(null)}>
         <DialogContent>
           <DialogHeader>

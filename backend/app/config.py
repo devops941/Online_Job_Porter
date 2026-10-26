@@ -19,6 +19,11 @@ class Settings(BaseSettings):
     smtp_from: str = "noreply@jobportal.com"
     cors_origins: str = "http://localhost:5173,http://localhost:3000,http://localhost:12000,http://127.0.0.1:12000,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:3000"
 
+    # Cloudinary storage
+    cloudinary_cloud_name: str = "uoyjkcmp"
+    cloudinary_api_key: str = "683385166799711"
+    cloudinary_api_secret: str = "rBYiSVv8BhHyz4zwyaJDSmruBrA"
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

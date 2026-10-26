@@ -20,6 +20,7 @@ from app.routes import (
     resume_routes,
     saved_job_routes,
     taxonomy_routes,
+    upload_routes,
     user_routes,
 )
 
@@ -87,6 +88,7 @@ for module in (
     notification_routes,
     dashboard_routes,
     report_routes,
+    upload_routes,
 ):
     app.include_router(module.router)
 

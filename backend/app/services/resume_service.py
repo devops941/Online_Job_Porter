@@ -39,7 +39,28 @@ def extract_text(filename: str, content: bytes) -> str:
         return _extract_pdf(content)
     if lower.endswith((".docx", ".doc")):
         return _extract_docx(content)
-    raise ResumeParseError("Only PDF and DOCX resumes are supported")
+    if lower.endswith(".txt"):
+        return _extract_txt(content)
+    if lower.endswith(".rtf"):
+        return _extract_rtf(content)
+    raise ResumeParseError("Only PDF, Word (.docx, .doc), Plain Text (.txt), and RTF (.rtf) files are supported")
+
+
+def _extract_txt(content: bytes) -> str:
+    try:
+        return content.decode("utf-8")
+    except UnicodeDecodeError:
+        return content.decode("latin-1", errors="ignore")
+
+
+def _extract_rtf(content: bytes) -> str:
+    try:
+        raw = content.decode("utf-8", errors="ignore")
+    except Exception:
+        raw = content.decode("latin-1", errors="ignore")
+    text = re.sub(r"\\[a-z]{1,32}(-?\d{1,10})?[ ]?", " ", raw)
+    text = re.sub(r"[\{\}]", " ", text)
+    return " ".join(text.split())
 
 
 def _extract_pdf(content: bytes) -> str:

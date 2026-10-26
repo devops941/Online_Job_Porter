@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 from fastapi import Depends, APIRouter, BackgroundTasks, HTTPException, Query
 
-from app.auth import CurrentUser, require_admin, require_employer, require_employer_or_admin
+from app.auth import CurrentUser, OptionalUser, require_admin, require_employer, require_employer_or_admin
 from app.database.client import db
 from app.schemas import (
     JobIn,
@@ -14,7 +14,7 @@ from app.schemas import (
     RecommendedJob,
 )
 from app.services import email_service
-from app.services.matching_service import score_job
+from app.services.matching_service import rank_jobs
 from app.services.notification_service import notify, notify_new_job
 from app.utils.text import safe_term
 
@@ -67,6 +67,7 @@ def _order_for(sort: str) -> dict:
         "oldest": {"createdAt": "asc"},
         "salary": {"salaryMax": "desc"},
         "newest": {"createdAt": "desc"},
+        "popular": {"views": "desc"},
     }.get(sort, {"createdAt": "desc"})
 
 
@@ -85,6 +86,7 @@ async def search_jobs(
     sort: str = "newest",
     page: int = Query(1, ge=1),
     pageSize: int = Query(12, ge=1, le=100),
+    current: OptionalUser = None,
 ):
     where = _build_job_where(
         {
@@ -100,14 +102,70 @@ async def search_jobs(
             "status": "approved",
         }
     )
-    total = await db.job.count(where=where)
-    items = await db.job.find_many(
-        where=where,
-        include=JOB_INCLUDE,
-        skip=(page - 1) * pageSize,
-        take=pageSize,
-        order=_order_for(sort),
+
+    smart = sort == "best_match" and current is not None and getattr(current, "role", None) == "job_seeker"
+
+    if not smart:
+        # Non-smart path: existing fast DB-ordered behavior.
+        total = await db.job.count(where=where)
+        items = await db.job.find_many(
+            where=where,
+            include=JOB_INCLUDE,
+            skip=(page - 1) * pageSize,
+            take=pageSize,
+            order=_order_for(sort),
+        )
+        return Page[JobOut](
+            items=items, total=total, page=page, page_size=pageSize, pages=max(1, -(-total // pageSize))
+        )
+
+    # Smart path: score and rank jobs by match with seeker profile + resume.
+    seeker = await db.jobseeker.find_unique(where={"userId": current.id})
+    if seeker is None:
+        # Fallback: no seeker profile, return newest ordering.
+        total = await db.job.count(where=where)
+        items = await db.job.find_many(
+            where=where,
+            include=JOB_INCLUDE,
+            skip=(page - 1) * pageSize,
+            take=pageSize,
+            order={"createdAt": "desc"},
+        )
+        return Page[JobOut](
+            items=items, total=total, page=page, page_size=pageSize, pages=max(1, -(-total // pageSize))
+        )
+
+    # Load primary resume for extra signal.
+    resume = await db.resume.find_first(where={"jobSeekerId": seeker.id, "isPrimary": True})
+    if resume is None:
+        resume = await db.resume.find_first(
+            where={"jobSeekerId": seeker.id}, order={"createdAt": "desc"}
+        )
+
+    if resume is not None:
+        extra_skills: list[str] = resume.parsedSkills or []
+        extra_text: str = (resume.parsedText or "")[:4000]
+    else:
+        extra_skills = []
+        extra_text = ""
+
+    # Fetch candidate jobs (up to 300, newest first).
+    jobs = await db.job.find_many(
+        where=where, include=JOB_INCLUDE, take=300, order={"createdAt": "desc"}
     )
+
+    # Corpus-level TF-IDF ranking: one call scores all candidate jobs together.
+    ranked = rank_jobs(seeker, jobs, extra_skills=extra_skills, extra_text=extra_text)
+    scored_items: list[JobOut] = []
+    for job, final, matched, _missing in ranked:
+        out = JobOut.model_validate(job)
+        out.matchScore = final
+        out.matchedSkills = matched
+        scored_items.append(out)
+
+    total = len(scored_items)
+    start = (page - 1) * pageSize
+    items = scored_items[start : start + pageSize]
     return Page[JobOut](
         items=items, total=total, page=page, page_size=pageSize, pages=max(1, -(-total // pageSize))
     )
@@ -124,9 +182,9 @@ async def recommended_jobs(user: CurrentUser, limit: int = Query(10, ge=1, le=50
     jobs = await db.job.find_many(
         where={"status": "approved"}, include=JOB_INCLUDE, take=200, order={"createdAt": "desc"}
     )
+    ranked = rank_jobs(seeker, jobs)
     scored = []
-    for job in jobs:
-        final, _ratio, matched, missing = score_job(seeker, job)
+    for job, final, matched, missing in ranked:
         if final <= 0:
             continue
         scored.append(
@@ -134,7 +192,6 @@ async def recommended_jobs(user: CurrentUser, limit: int = Query(10, ge=1, le=50
                 job=JobOut.model_validate(job), matchScore=final, matchedSkills=matched, missingSkills=missing
             )
         )
-    scored.sort(key=lambda r: r.matchScore, reverse=True)
     return scored[:limit]
 
 
@@ -231,7 +288,7 @@ async def create_job(payload: JobIn, user: CurrentUser):
     if not employer.isApproved:
         raise HTTPException(
             status_code=403,
-            detail="Your recruiter account is awaiting admin approval",
+            detail="Your company account is awaiting admin approval",
         )
     if not employer.companyId:
         raise HTTPException(status_code=400, detail="Create your company profile before posting jobs")

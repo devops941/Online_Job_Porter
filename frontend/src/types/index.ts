@@ -69,6 +69,8 @@ export interface Job {
   createdAt: string;
   company?: Company | null;
   category?: Category | null;
+  matchScore?: number;
+  matchedSkills?: string[];
 }
 
 export interface RecommendedJob {

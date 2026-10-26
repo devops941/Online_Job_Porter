@@ -11,7 +11,7 @@ import { apiErrorMessage } from "@/lib/api";
 
 const DEMO_ACCOUNTS = [
   { label: "Job seeker", email: "aarav@example.com" },
-  { label: "Employer", email: "meera@novatech.example.com" },
+  { label: "Company", email: "meera@novatech.example.com" },
   { label: "Admin", email: "admin@jobportal.com" },
 ];
 

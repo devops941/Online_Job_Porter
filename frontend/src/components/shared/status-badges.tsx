@@ -21,15 +21,27 @@ const JOB_VARIANTS: Record<JobStatus, "default" | "secondary" | "success" | "war
 };
 
 export function ApplicationStatusBadge({ status }: { status: ApplicationStatus }) {
-  return <Badge variant={APPLICATION_VARIANTS[status] ?? "secondary"}>{titleCase(status)}</Badge>;
+  return (
+    <Badge variant={APPLICATION_VARIANTS[status] ?? "secondary"} className="text-[11px] px-2 py-0.5 font-medium">
+      {titleCase(status)}
+    </Badge>
+  );
 }
 
 export function JobStatusBadge({ status }: { status: JobStatus }) {
-  return <Badge variant={JOB_VARIANTS[status] ?? "secondary"}>{titleCase(status)}</Badge>;
+  return (
+    <Badge variant={JOB_VARIANTS[status] ?? "secondary"} className="text-[11px] px-2 py-0.5 font-medium">
+      {titleCase(status)}
+    </Badge>
+  );
 }
 
 export function MatchScoreBadge({ score }: { score?: number | null }) {
-  if (score === null || score === undefined) return <Badge variant="outline">No score</Badge>;
+  if (score === null || score === undefined) return null;
   const variant = score >= 70 ? "success" : score >= 45 ? "warning" : "secondary";
-  return <Badge variant={variant}>{score.toFixed(0)}% match</Badge>;
+  return (
+    <Badge variant={variant} className="text-[11px] px-2 py-0.5 font-medium tabular-nums">
+      {score.toFixed(0)}% match
+    </Badge>
+  );
 }

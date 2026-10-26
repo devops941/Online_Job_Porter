@@ -12,7 +12,6 @@ import {
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AppShell } from "@/components/layout/app-shell";
 import { EmptyState, PageHeader, StatCard } from "@/components/shared/page-parts";
 import { JobStatusBadge } from "@/components/shared/status-badges";
@@ -41,12 +40,15 @@ export default function EmployerDashboard() {
     return (
       <AppShell>
         <Skeleton className="h-8 w-56" />
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <Skeleton key={index} className="h-28 w-full" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <Skeleton key={index} className="h-24 w-full" />
           ))}
         </div>
-        <Skeleton className="h-72 w-full" />
+        <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+          <Skeleton className="h-72 w-full" />
+          <Skeleton className="h-72 w-full" />
+        </div>
       </AppShell>
     );
   }
@@ -75,7 +77,7 @@ export default function EmployerDashboard() {
   return (
     <AppShell>
       <PageHeader
-        title="Employer dashboard"
+        title="Company dashboard"
         description={data.company ? `Hiring activity for ${data.company.name}` : "Hiring activity"}
         action={
           <Button asChild>
@@ -96,7 +98,8 @@ export default function EmployerDashboard() {
         </Alert>
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Stat tiles */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard
           label="Job posts"
           value={data.totals.jobs}
@@ -106,63 +109,79 @@ export default function EmployerDashboard() {
         <StatCard label="Applications" value={data.totals.applications} icon={Users} />
         <StatCard label="Shortlisted" value={data.totals.shortlisted} icon={Eye} />
         <StatCard label="Hires" value={data.totals.hires} icon={CalendarClock} />
+        <StatCard
+          label="Interviews"
+          value={data.totals.interviews ?? 0}
+          icon={CalendarClock}
+        />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
-        <Card>
-          <CardHeader className="flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-base">Top performing posts</CardTitle>
+      {/* Main content area */}
+      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+        {/* Top jobs table */}
+        <div className="rounded-lg border bg-card">
+          <div className="flex items-center justify-between border-b px-5 py-3.5">
+            <h2 className="text-sm font-semibold text-foreground">Top performing posts</h2>
             <Button variant="ghost" size="sm" asChild>
               <Link to="/employer/applicants">
-                Applicants <ArrowRight />
+                All applicants <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </Button>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {data.topJobs.length ? (
-              data.topJobs.map((job) => (
-                <div
-                  key={job.title}
-                  className="flex items-center justify-between gap-3 rounded-md border p-3"
-                >
-                  <div className="min-w-0">
-                    <p className="line-clamp-1 text-sm font-medium">{job.title}</p>
-                    <p className="text-xs text-muted-foreground">{job.views} views</p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <JobStatusBadge status={job.status as never} />
-                    <span className="text-sm font-medium tabular-nums">
-                      {job.applications} applicant{job.applications === 1 ? "" : "s"}
-                    </span>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="py-6 text-center text-sm text-muted-foreground">
-                No job posts yet.{" "}
-                <Link to="/employer/jobs" className="text-primary hover:underline">
-                  Create your first posting
-                </Link>
-              </p>
-            )}
-          </CardContent>
-        </Card>
+          </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Applicant pipeline</CardTitle>
-          </CardHeader>
-          <CardContent>
+          {data.topJobs.length ? (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/40 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  <th className="px-5 py-2.5 text-left">Title</th>
+                  <th className="px-5 py-2.5 text-left">Status</th>
+                  <th className="px-5 py-2.5 text-right">Views</th>
+                  <th className="px-5 py-2.5 text-right">Applicants</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.topJobs.map((job) => (
+                  <tr key={job.title} className="border-b last:border-0 hover:bg-muted/40 transition-colors">
+                    <td className="px-5 py-3 font-medium">{job.title}</td>
+                    <td className="px-5 py-3">
+                      <JobStatusBadge status={job.status as never} />
+                    </td>
+                    <td className="px-5 py-3 text-right tabular-nums text-muted-foreground">
+                      {job.views}
+                    </td>
+                    <td className="px-5 py-3 text-right tabular-nums font-medium">
+                      {job.applications}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="py-10 text-center text-sm text-muted-foreground">
+              No job posts yet.{" "}
+              <Link to="/employer/jobs" className="text-primary hover:underline">
+                Create your first posting
+              </Link>
+            </div>
+          )}
+        </div>
+
+        {/* Applicant pipeline chart */}
+        <div className="rounded-lg border bg-card">
+          <div className="border-b px-5 py-3.5">
+            <h2 className="text-sm font-semibold text-foreground">Applicant pipeline</h2>
+          </div>
+          <div className="p-5">
             {chartData.length ? (
               <>
-                <ResponsiveContainer width="100%" height={200}>
+                <ResponsiveContainer width="100%" height={180}>
                   <PieChart>
                     <Pie
                       data={chartData}
                       dataKey="value"
                       nameKey="name"
                       innerRadius={45}
-                      outerRadius={75}
+                      outerRadius={72}
                       paddingAngle={2}
                     >
                       {chartData.map((entry) => (
@@ -171,32 +190,35 @@ export default function EmployerDashboard() {
                     </Pie>
                     <Tooltip
                       contentStyle={{
-                        borderRadius: 8,
+                        borderRadius: 6,
                         border: "1px solid hsl(var(--border))",
                         fontSize: 12,
+                        background: "hsl(var(--card))",
+                        color: "hsl(var(--foreground))",
                       }}
                     />
                   </PieChart>
                 </ResponsiveContainer>
-                <div className="mt-2 grid grid-cols-2 gap-1.5">
+                <div className="mt-3 grid grid-cols-2 gap-1.5">
                   {chartData.map((entry) => (
-                    <p key={entry.key} className="flex items-center gap-2 text-xs">
+                    <p key={entry.key} className="flex items-center gap-2 text-xs text-foreground">
                       <span
-                        className="h-2.5 w-2.5 rounded-full"
+                        className="h-2 w-2 shrink-0 rounded-full"
                         style={{ background: STATUS_COLORS[entry.key] ?? "#6366f1" }}
                       />
-                      {entry.name}: <span className="font-medium">{entry.value}</span>
+                      <span className="truncate text-muted-foreground">{entry.name}</span>
+                      <span className="ml-auto font-medium tabular-nums">{entry.value}</span>
                     </p>
                   ))}
                 </div>
               </>
             ) : (
-              <p className="py-8 text-center text-sm text-muted-foreground">
+              <p className="py-10 text-center text-sm text-muted-foreground">
                 No applications received yet.
               </p>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </AppShell>
   );

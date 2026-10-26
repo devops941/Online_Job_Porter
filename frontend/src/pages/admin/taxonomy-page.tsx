@@ -4,12 +4,11 @@ import { Plus, Tags, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AppShell } from "@/components/layout/app-shell";
-import { EmptyState, PageHeader } from "@/components/shared/page-parts";
+import { EmptyState, PageHeader, TableSkeleton } from "@/components/shared/page-parts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiErrorMessage } from "@/lib/api";
 import { taxonomyApi } from "@/lib/api-client";
@@ -101,13 +100,15 @@ export default function AdminTaxonomyPage() {
           <TabsTrigger value="skills">Skills</TabsTrigger>
         </TabsList>
 
+        {/* ── Categories tab ── */}
         <TabsContent value="categories">
-          <div className="grid gap-6 lg:grid-cols-[340px_1fr]">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">New category</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+          <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
+            {/* Create form */}
+            <div className="rounded-lg border bg-card">
+              <div className="border-b px-5 py-3.5">
+                <p className="text-sm font-semibold text-foreground">New category</p>
+              </div>
+              <div className="space-y-4 p-5">
                 <div className="space-y-1.5">
                   <Label htmlFor="categoryName">Name</Label>
                   <Input
@@ -115,6 +116,9 @@ export default function AdminTaxonomyPage() {
                     placeholder="Data Science"
                     value={categoryName}
                     onChange={(event) => setCategoryName(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && categoryName.trim()) addCategory.mutate();
+                    }}
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -131,70 +135,111 @@ export default function AdminTaxonomyPage() {
                   disabled={addCategory.isPending || !categoryName.trim()}
                   onClick={() => addCategory.mutate()}
                 >
-                  <Plus /> Create category
+                  <Plus className="h-4 w-4" /> Create category
                 </Button>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
-            <div className="space-y-2">
+            {/* Categories table */}
+            <div className="rounded-lg border bg-card">
+              <div className="border-b px-5 py-3.5">
+                <p className="text-sm font-semibold text-foreground">
+                  Categories
+                  {categories.data ? (
+                    <span className="ml-2 text-xs font-normal text-muted-foreground">
+                      {categories.data.length} total
+                    </span>
+                  ) : null}
+                </p>
+              </div>
               {categories.isLoading ? (
-                Array.from({ length: 4 }).map((_, index) => (
-                  <Skeleton key={index} className="h-16 w-full" />
-                ))
+                <div className="p-5">
+                  <TableSkeleton rows={4} />
+                </div>
               ) : categories.data?.length ? (
-                categories.data.map((category) => (
-                  <Card key={category.id}>
-                    <CardContent className="flex items-center justify-between gap-3 p-4">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium">{category.name}</p>
-                          <Badge variant={category.isActive ? "success" : "secondary"}>
-                            {category.isActive ? "Active" : "Hidden"}
-                          </Badge>
-                        </div>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {category.description ?? "No description"}
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            toggleCategory.mutate({
-                              id: category.id,
-                              isActive: !category.isActive,
-                            })
-                          }
-                        >
-                          {category.isActive ? "Hide" : "Show"}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Delete category"
-                          onClick={() => removeCategory.mutate(category.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/40 text-left">
+                        <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Name
+                        </th>
+                        <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Description
+                        </th>
+                        <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Visibility
+                        </th>
+                        <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {categories.data.map((category) => (
+                        <tr key={category.id} className="hover:bg-muted/40">
+                          <td className="px-5 py-3.5 font-medium text-foreground">
+                            {category.name}
+                          </td>
+                          <td className="px-5 py-3.5 text-muted-foreground">
+                            {category.description ?? (
+                              <span className="italic text-muted-foreground/60">No description</span>
+                            )}
+                          </td>
+                          <td className="px-5 py-3.5">
+                            <Badge variant={category.isActive ? "success" : "secondary"}>
+                              {category.isActive ? "Active" : "Hidden"}
+                            </Badge>
+                          </td>
+                          <td className="px-5 py-3.5">
+                            <div className="flex justify-end gap-1.5">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={toggleCategory.isPending}
+                                onClick={() =>
+                                  toggleCategory.mutate({
+                                    id: category.id,
+                                    isActive: !category.isActive,
+                                  })
+                                }
+                              >
+                                {category.isActive ? "Hide" : "Show"}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                aria-label="Delete category"
+                                disabled={removeCategory.isPending}
+                                onClick={() => removeCategory.mutate(category.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               ) : (
-                <EmptyState icon={Tags} title="No categories yet" />
+                <div className="p-5">
+                  <EmptyState icon={Tags} title="No categories yet" />
+                </div>
               )}
             </div>
           </div>
         </TabsContent>
 
+        {/* ── Skills tab ── */}
         <TabsContent value="skills">
-          <div className="grid gap-6 lg:grid-cols-[340px_1fr]">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">New skill</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+          <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
+            {/* Create form */}
+            <div className="rounded-lg border bg-card">
+              <div className="border-b px-5 py-3.5">
+                <p className="text-sm font-semibold text-foreground">New skill</p>
+              </div>
+              <div className="space-y-4 p-5">
                 <div className="space-y-1.5">
                   <Label htmlFor="skillName">Skill name</Label>
                   <Input
@@ -212,47 +257,71 @@ export default function AdminTaxonomyPage() {
                   disabled={addSkill.isPending || !skillName.trim()}
                   onClick={() => addSkill.mutate()}
                 >
-                  <Plus /> Create skill
+                  <Plus className="h-4 w-4" /> Create skill
                 </Button>
                 <p className="text-xs text-muted-foreground">
-                  Skills suggested here appear as quick-add chips on job seeker profiles.
+                  Skills added here appear as quick-add chips on job seeker profiles.
                 </p>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">
-                  {skills.data ? `${skills.data.length} skills` : "Skills"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {skills.isLoading ? (
+            {/* Skills table */}
+            <div className="rounded-lg border bg-card">
+              <div className="border-b px-5 py-3.5">
+                <p className="text-sm font-semibold text-foreground">
+                  Skills
+                  {skills.data ? (
+                    <span className="ml-2 text-xs font-normal text-muted-foreground">
+                      {skills.data.length} total
+                    </span>
+                  ) : null}
+                </p>
+              </div>
+              {skills.isLoading ? (
+                <div className="p-5">
                   <Skeleton className="h-40 w-full" />
-                ) : skills.data?.length ? (
-                  <div className="flex flex-wrap gap-2">
-                    {skills.data.map((skill) => (
-                      <span
-                        key={skill.id}
-                        className="group inline-flex items-center gap-1 rounded-md bg-secondary px-2 py-1 text-xs font-medium"
-                      >
-                        {skill.name}
-                        <button
-                          type="button"
-                          className="opacity-0 transition-opacity group-hover:opacity-100"
-                          aria-label={`Delete ${skill.name}`}
-                          onClick={() => removeSkill.mutate(skill.id)}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                ) : (
+                </div>
+              ) : skills.data?.length ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/40 text-left">
+                        <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Skill name
+                        </th>
+                        <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Action
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {skills.data.map((skill) => (
+                        <tr key={skill.id} className="hover:bg-muted/40">
+                          <td className="px-5 py-3 font-medium text-foreground">{skill.name}</td>
+                          <td className="px-5 py-3">
+                            <div className="flex justify-end">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                aria-label={`Delete ${skill.name}`}
+                                disabled={removeSkill.isPending}
+                                onClick={() => removeSkill.mutate(skill.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="p-5">
                   <EmptyState icon={Tags} title="No skills defined yet" />
-                )}
-              </CardContent>
-            </Card>
+                </div>
+              )}
+            </div>
           </div>
         </TabsContent>
       </Tabs>

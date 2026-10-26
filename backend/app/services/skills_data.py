@@ -116,3 +116,42 @@ SKILL_VOCABULARY: dict[str, list[str]] = {
     "finance": ["finance", "financial analysis", "fp&a"],
     "content writing": ["content writing", "copywriting", "technical writing"],
 }
+
+
+# Umbrella / role terms -> concrete skills they imply. Keys are role-specific and
+# unambiguous (no bare words like "data", "cloud", "ml", "ui" that would falsely
+# trigger on common summary phrases). Values are canonical skill names matching how
+# jobs list their skills. Used by matching_service.expand_skills.
+_FRONTEND = ["React", "JavaScript", "TypeScript", "HTML", "CSS", "Vue", "Angular", "Tailwind CSS", "Next.js", "Redux", "SASS"]
+_BACKEND = ["Python", "Node.js", "Java", "Go", "Django", "FastAPI", "Flask", "Express", "SQL", "REST API", "Microservices", "PostgreSQL", "MongoDB"]
+# Union of frontend + backend, order-preserving (frontend first, then backend extras).
+_FULLSTACK = _FRONTEND + [s for s in _BACKEND if s not in _FRONTEND]
+
+ROLE_EXPANSIONS: dict[str, list[str]] = {
+    "frontend": _FRONTEND,
+    "front end": _FRONTEND,
+    "front-end": _FRONTEND,
+    "ui developer": ["HTML", "CSS", "JavaScript", "React", "Figma", "UI/UX"],
+    "backend": _BACKEND,
+    "back end": _BACKEND,
+    "back-end": _BACKEND,
+    "full stack": _FULLSTACK,
+    "fullstack": _FULLSTACK,
+    "full-stack": _FULLSTACK,
+    "web developer": ["HTML", "CSS", "JavaScript", "React", "Node.js", "Express"],
+    "mobile developer": ["Kotlin", "Swift", "React Native", "Flutter", "Java"],
+    "android developer": ["Kotlin", "Java"],
+    "ios developer": ["Swift"],
+    "data scientist": ["Python", "Pandas", "NumPy", "Machine Learning", "Scikit-learn", "SQL", "Data Analysis"],
+    "data analyst": ["SQL", "Excel", "Pandas", "Data Analysis", "Data Visualization", "Power BI", "Tableau"],
+    "data engineer": ["Python", "SQL", "ETL", "Spark", "Airflow"],
+    "machine learning engineer": ["Python", "Machine Learning", "PyTorch", "TensorFlow", "Scikit-learn", "NumPy", "Pandas"],
+    "ml engineer": ["Python", "Machine Learning", "PyTorch", "TensorFlow", "Scikit-learn", "NumPy", "Pandas"],
+    "devops": ["Docker", "Kubernetes", "AWS", "CI/CD", "Terraform", "Linux", "Jenkins"],
+    "devops engineer": ["Docker", "Kubernetes", "AWS", "CI/CD", "Terraform", "Linux", "Jenkins"],
+    "cloud engineer": ["AWS", "Azure", "GCP", "Docker", "Kubernetes", "Terraform"],
+    "qa engineer": ["Selenium", "Cypress", "Pytest", "Unit Testing", "Playwright"],
+    "python developer": ["Python", "Django", "FastAPI", "Flask", "SQL"],
+    "java developer": ["Java", "Spring Boot", "SQL"],
+    "designer": ["Figma", "UI/UX", "Photoshop"],
+}

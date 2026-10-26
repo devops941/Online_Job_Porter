@@ -6,7 +6,7 @@ export default function EmployerReportsPage() {
     <AppShell>
       <ReportsView
         scopes={["jobs", "applications", "interviews", "hiring"]}
-        title="Reports"
+        title="Company reports"
         description="Export hiring data for your company as Excel or PDF."
       />
     </AppShell>

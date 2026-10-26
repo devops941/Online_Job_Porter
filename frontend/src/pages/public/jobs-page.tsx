@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Filter, Loader2, RotateCcw, Search, SearchX } from "lucide-react";
+import { Filter, Loader2, RotateCcw, Search, SearchX, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -16,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PublicNavbar, PublicFooter } from "@/components/layout/public-navbar";
-import { JobCard } from "@/components/jobs/job-card";
+import { JobListItem, JobListItemSkeleton } from "@/components/jobs/job-list-item";
 import { EmptyState } from "@/components/shared/page-parts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/context/auth-context";
@@ -29,6 +28,7 @@ import type { Job } from "@/types";
 const EMPLOYMENT_TYPES = ["full_time", "part_time", "contract", "internship", "temporary"];
 const WORK_MODES = ["onsite", "remote", "hybrid"];
 const SORTS = [
+  { value: "best_match", label: "Best match" },
   { value: "newest", label: "Newest first" },
   { value: "oldest", label: "Oldest first" },
   { value: "salary", label: "Highest salary" },
@@ -50,7 +50,8 @@ export default function JobsPage() {
   const categoryId = params.get("categoryId") ?? "";
   const employmentType = params.get("employmentType") ?? "";
   const workMode = params.get("workMode") ?? "";
-  const sort = params.get("sort") ?? "newest";
+  // Default sort: best_match for job seekers, newest otherwise (only when no explicit param)
+  const sort = params.get("sort") ?? (isSeeker ? "best_match" : "newest");
   const location = params.get("location") ?? "";
   const minSalary = params.get("salaryMin") ?? "";
   const skills = params.getAll("skills");
@@ -139,7 +140,7 @@ export default function JobsPage() {
       return { job, saved: true };
     },
     onSuccess: ({ job, saved }) => {
-      toast.success(saved ? `Saved “${job.title}”` : `Removed “${job.title}”`);
+      toast.success(saved ? `Saved "${job.title}"` : `Removed "${job.title}"`);
       void queryClient.invalidateQueries({ queryKey: ["saved-jobs"] });
     },
     onError: (error) => toast.error(apiErrorMessage(error, "Could not update saved jobs")),
@@ -161,40 +162,49 @@ export default function JobsPage() {
     setParams(new URLSearchParams({ sort }), { replace: true });
   };
 
+  const showMatchHint = isSeeker && sort === "best_match";
+
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-background">
       <PublicNavbar />
 
       <div className="container flex-1 py-8">
-        <div className="mb-6 space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Browse jobs</h1>
+        {/* Page heading */}
+        <div className="mb-6 space-y-0.5">
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">Find jobs</h1>
           <p className="text-sm text-muted-foreground">
-            {jobs.data ? `${jobs.data.total} role${jobs.data.total === 1 ? "" : "s"} match your filters` : "Search approved openings"}
+            {jobs.data
+              ? `${jobs.data.total.toLocaleString()} role${jobs.data.total === 1 ? "" : "s"} match your filters`
+              : "Search approved openings"}
           </p>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
-          <aside className="space-y-4">
-            <Card>
-              <CardContent className="space-y-4 p-4">
-                <div className="flex items-center justify-between">
-                  <p className="flex items-center gap-2 text-sm font-medium">
-                    <Filter className="h-4 w-4" /> Filters
-                    {activeFilterCount > 0 ? (
-                      <span className="rounded-full bg-primary px-1.5 text-xs text-primary-foreground">
-                        {activeFilterCount}
-                      </span>
-                    ) : null}
-                  </p>
+        <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
+          {/* ── Filter sidebar ─────────────────────────────── */}
+          <aside>
+            <div className="rounded-lg border border-border bg-card">
+              <div className="flex items-center justify-between border-b px-4 py-3">
+                <p className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <Filter className="h-3.5 w-3.5" />
+                  Filters
                   {activeFilterCount > 0 ? (
-                    <Button variant="ghost" size="sm" onClick={clearFilters}>
-                      <RotateCcw /> Reset
-                    </Button>
+                    <span className="rounded-full bg-primary px-1.5 py-px text-[11px] font-medium leading-none text-primary-foreground">
+                      {activeFilterCount}
+                    </span>
                   ) : null}
-                </div>
+                </p>
+                {activeFilterCount > 0 ? (
+                  <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={clearFilters}>
+                    <RotateCcw className="h-3 w-3" /> Reset
+                  </Button>
+                ) : null}
+              </div>
 
+              <div className="space-y-5 px-4 py-4">
                 <div className="space-y-1.5">
-                  <Label>Location</Label>
+                  <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Location
+                  </Label>
                   <Input
                     placeholder="City or Remote"
                     value={locationInput}
@@ -203,7 +213,9 @@ export default function JobsPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label>Category</Label>
+                  <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Category
+                  </Label>
                   <Select
                     value={categoryId || "all"}
                     onValueChange={(value) =>
@@ -225,7 +237,9 @@ export default function JobsPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label>Employment type</Label>
+                  <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Employment type
+                  </Label>
                   <Select
                     value={employmentType || "all"}
                     onValueChange={(value) =>
@@ -247,10 +261,14 @@ export default function JobsPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label>Work mode</Label>
+                  <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Work mode
+                  </Label>
                   <Select
                     value={workMode || "all"}
-                    onValueChange={(value) => updateParams({ workMode: value === "all" ? null : value })}
+                    onValueChange={(value) =>
+                      updateParams({ workMode: value === "all" ? null : value })
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Any mode" />
@@ -267,7 +285,9 @@ export default function JobsPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label>Minimum salary (USD / month)</Label>
+                  <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Minimum salary (USD / month)
+                  </Label>
                   <Input
                     type="number"
                     min={0}
@@ -279,14 +299,16 @@ export default function JobsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Skills</Label>
-                  <div className="max-h-52 space-y-2 overflow-y-auto pr-1">
+                  <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Skills
+                  </Label>
+                  <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
                     {skillOptions.isLoading
                       ? Array.from({ length: 6 }).map((_, index) => (
-                          <Skeleton key={index} className="h-5 w-full" />
+                          <Skeleton key={index} className="h-4 w-full" />
                         ))
                       : skillOptions.data?.slice(0, 30).map((skill) => (
-                          <label key={skill.id} className="flex items-center gap-2 text-sm">
+                          <label key={skill.id} className="flex cursor-pointer items-center gap-2 text-sm">
                             <Checkbox
                               checked={selectedSkills.includes(skill.name)}
                               onCheckedChange={(checked) => {
@@ -297,16 +319,18 @@ export default function JobsPage() {
                                 updateParams({ skills: next });
                               }}
                             />
-                            {skill.name}
+                            <span className="text-foreground">{skill.name}</span>
                           </label>
                         ))}
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </aside>
 
+          {/* ── Results panel ──────────────────────────────── */}
           <section className="space-y-4">
+            {/* Search + sort bar */}
             <div className="flex flex-col gap-3 sm:flex-row">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -331,10 +355,19 @@ export default function JobsPage() {
               </Select>
             </div>
 
+            {/* Smart-match hint */}
+            {showMatchHint ? (
+              <p className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-4 py-2.5 text-xs text-muted-foreground">
+                <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" />
+                Ranked by match to your profile and resume
+              </p>
+            ) : null}
+
+            {/* Job list */}
             {jobs.isLoading ? (
-              <div className="grid gap-4 md:grid-cols-2">
-                {Array.from({ length: 4 }).map((_, index) => (
-                  <Skeleton key={index} className="h-56 w-full" />
+              <div className="space-y-3">
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <JobListItemSkeleton key={index} />
                 ))}
               </div>
             ) : jobs.isError ? (
@@ -347,18 +380,20 @@ export default function JobsPage() {
               />
             ) : jobs.data && jobs.data.items.length > 0 ? (
               <>
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-3">
                   {jobs.data.items.map((job) => (
-                    <JobCard
+                    <JobListItem
                       key={job.id}
                       job={job}
                       saved={savedIds.has(job.id)}
                       onToggleSave={isSeeker ? (entry) => toggleSave.mutate(entry) : undefined}
                       savingDisabled={toggleSave.isPending}
+                      showMatch={isSeeker}
                     />
                   ))}
                 </div>
 
+                {/* Pagination */}
                 {jobs.data.pages > 1 ? (
                   <div className="flex items-center justify-center gap-3 pt-2">
                     <Button

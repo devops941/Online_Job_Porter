@@ -261,9 +261,15 @@ export const resumeApi = {
     const { data } = await api.get<Resume[]>("/api/resumes");
     return data;
   },
-  async upload(file: File) {
+  async upload(file: File, options?: { isPrimary?: boolean; customTitle?: string }) {
     const form = new FormData();
     form.append("file", file);
+    if (options?.isPrimary) {
+      form.append("isPrimary", "true");
+    }
+    if (options?.customTitle) {
+      form.append("customTitle", options.customTitle);
+    }
     const { data } = await api.post<Resume>("/api/resumes/upload", form, {
       headers: { "Content-Type": "multipart/form-data" },
     });
@@ -277,9 +283,26 @@ export const resumeApi = {
     const { data } = await api.delete<{ detail: string }>(`/api/resumes/${resumeId}`);
     return data;
   },
-  async download(resumeId: string) {
+  async download(resumeId: string, inline = false) {
     const { data } = await api.get<Blob>(`/api/resumes/${resumeId}/download`, {
+      params: inline ? { inline: true } : undefined,
       responseType: "blob",
+    });
+    return data;
+  },
+};
+
+export const uploadApi = {
+  async uploadImage(file: File) {
+    const form = new FormData();
+    form.append("file", file);
+    const { data } = await api.post<{
+      url: string;
+      public_id: string;
+      format?: string;
+      bytes: number;
+    }>("/api/upload/image", form, {
+      headers: { "Content-Type": "multipart/form-data" },
     });
     return data;
   },
