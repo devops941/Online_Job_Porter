@@ -13,6 +13,4 @@ python-docx
 python-jose[cryptography]
 python-multipart
 reportlab
-scikit-learn
-spacy
-uvicorn[standard]
+uvicorn
