@@ -47,3 +47,18 @@ require_admin = require_roles("admin")
 require_employer = require_roles("employer")
 require_job_seeker = require_roles("job_seeker")
 require_employer_or_admin = require_roles("employer", "admin")
+
+
+async def get_optional_user(token: Annotated[str | None, Depends(oauth2_scheme)]):
+    if not token:
+        return None
+    payload = decode_access_token(token)
+    if not payload or not payload.get("sub"):
+        return None
+    user = await db.user.find_unique(where={"id": payload["sub"]})
+    if user is None or not user.isActive:
+        return None
+    return user
+
+
+OptionalUser = Annotated[object | None, Depends(get_optional_user)]

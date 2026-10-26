@@ -5,24 +5,24 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
 import { AuthLayout } from "./auth-layout";
 import { homeRouteFor, useAuth } from "@/context/auth-context";
 import { apiErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import type { Role } from "@/types";
 
+// Role value stays "employer"; only the displayed label changes to "Company"
 const ROLE_OPTIONS: { value: Role; label: string; description: string; icon: typeof Users }[] = [
   {
     value: "job_seeker",
-    label: "Job seeker",
+    label: "Job Seeker",
     description: "Search roles, apply and track applications.",
     icon: Users,
   },
   {
     value: "employer",
-    label: "Employer",
-    description: "Register a company and post openings.",
+    label: "Company",
+    description: "Register your company and post openings.",
     icon: Building2,
   },
 ];
@@ -78,7 +78,8 @@ export default function RegisterPage() {
         </>
       }
     >
-      <form className="space-y-4" onSubmit={onSubmit}>
+      <form className="space-y-5" onSubmit={onSubmit}>
+        {/* Role selector */}
         <div className="grid gap-3 sm:grid-cols-2">
           {ROLE_OPTIONS.map((option) => (
             <button
@@ -89,11 +90,11 @@ export default function RegisterPage() {
                 "rounded-lg border p-3 text-left transition-colors",
                 role === option.value
                   ? "border-primary bg-primary/5 ring-1 ring-primary"
-                  : "hover:bg-accent",
+                  : "border-border bg-background hover:bg-muted/40",
               )}
             >
               <option.icon className="mb-2 h-4 w-4 text-primary" />
-              <p className="text-sm font-medium">{option.label}</p>
+              <p className="text-sm font-medium text-foreground">{option.label}</p>
               <p className="text-xs text-muted-foreground">{option.description}</p>
             </button>
           ))}
@@ -142,16 +143,22 @@ export default function RegisterPage() {
         </div>
 
         {role === "employer" ? (
-          <div className="space-y-1.5">
-            <Label htmlFor="companyName">Company name</Label>
-            <Input
-              id="companyName"
-              required
-              placeholder="Acme Corporation"
-              value={companyName}
-              onChange={(event) => setCompanyName(event.target.value)}
-            />
-          </div>
+          <>
+            <div className="space-y-1.5">
+              <Label htmlFor="companyName">Company name</Label>
+              <Input
+                id="companyName"
+                required
+                placeholder="Acme Corporation"
+                value={companyName}
+                onChange={(event) => setCompanyName(event.target.value)}
+              />
+            </div>
+            <p className="rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2.5 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+              Company accounts are reviewed by an administrator. You will be able to post jobs once
+              approved.
+            </p>
+          </>
         ) : null}
 
         {error ? (
@@ -159,18 +166,10 @@ export default function RegisterPage() {
         ) : null}
 
         <Button type="submit" className="w-full" disabled={submitting}>
-          <UserPlus /> {submitting ? "Creating account…" : "Create account"}
+          <UserPlus className="h-4 w-4" />
+          {submitting ? "Creating account…" : "Create account"}
         </Button>
       </form>
-
-      {role === "employer" ? (
-        <Card className="border-amber-300/60 bg-amber-50 dark:bg-amber-950/30">
-          <CardContent className="p-4 text-xs text-amber-900 dark:text-amber-200">
-            Employer accounts are reviewed by an administrator. You will be able to post jobs once
-            your company is approved.
-          </CardContent>
-        </Card>
-      ) : null}
     </AuthLayout>
   );
 }

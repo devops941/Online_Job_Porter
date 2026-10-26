@@ -1,10 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { KeyRound, Save, ShieldCheck, UserCog } from "lucide-react";
+import { Building2, KeyRound, Loader2, Save, ShieldCheck, Upload, UserCog } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -14,7 +13,7 @@ import { PageHeader, SkillChips } from "@/components/shared/page-parts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/context/auth-context";
 import { apiErrorMessage } from "@/lib/api";
-import { authApi, profileApi, taxonomyApi, userApi } from "@/lib/api-client";
+import { authApi, profileApi, taxonomyApi, uploadApi, userApi } from "@/lib/api-client";
 import { titleCase } from "@/lib/utils";
 
 export default function ProfilePage() {
@@ -42,6 +41,9 @@ export default function ProfilePage() {
   const [companySize, setCompanySize] = useState("");
   const [companyWebsite, setCompanyWebsite] = useState("");
   const [companyDescription, setCompanyDescription] = useState("");
+  const [companyLogoUrl, setCompanyLogoUrl] = useState("");
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   const seekerProfile = useQuery({
     queryKey: ["profile", "seeker", "me"],
@@ -81,7 +83,27 @@ export default function ProfilePage() {
     setCompanySize(data.company?.size ?? "");
     setCompanyWebsite(data.company?.website ?? "");
     setCompanyDescription(data.company?.description ?? "");
+    setCompanyLogoUrl(data.company?.logoUrl ?? "");
   }, [employerProfile.data]);
+
+  const handleLogoSelected = async (file: File | undefined) => {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Logo must be 5 MB or smaller.");
+      return;
+    }
+    setUploadingLogo(true);
+    try {
+      const res = await uploadApi.uploadImage(file);
+      setCompanyLogoUrl(res.url);
+      toast.success("Logo uploaded to Cloudinary!");
+    } catch (err) {
+      toast.error(apiErrorMessage(err, "Failed to upload logo"));
+    } finally {
+      setUploadingLogo(false);
+      if (logoInputRef.current) logoInputRef.current.value = "";
+    }
+  };
 
   const saveAccount = useMutation({
     mutationFn: () => userApi.updateMe({ fullName: fullName.trim() }),
@@ -127,6 +149,7 @@ export default function ProfilePage() {
         designation,
         company: {
           name: companyName,
+          logoUrl: companyLogoUrl || undefined,
           industry: companyIndustry || undefined,
           location: companyLocation || undefined,
           size: companySize || undefined,
@@ -150,17 +173,18 @@ export default function ProfilePage() {
     <AppShell>
       <PageHeader
         title="Profile"
-        description="Keep your details current — employers and match scores use this information."
+        description="Keep your details current — companies and match scores use this information."
       />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="space-y-6">
+          {/* ── Job seeker section ──────────────────────────── */}
           {isSeeker ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>Job seeker profile</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+            <div className="rounded-lg border border-border bg-card">
+              <div className="border-b px-6 py-4">
+                <h2 className="text-base font-semibold text-foreground">Job seeker profile</h2>
+              </div>
+              <div className="space-y-4 px-6 py-5">
                 {seekerProfile.isLoading ? (
                   <Skeleton className="h-40 w-full" />
                 ) : (
@@ -269,24 +293,77 @@ export default function ProfilePage() {
                     </div>
 
                     <Button disabled={saveSeeker.isPending} onClick={() => saveSeeker.mutate()}>
-                      <Save /> {saveSeeker.isPending ? "Saving…" : "Save profile"}
+                      <Save className="h-4 w-4" />
+                      {saveSeeker.isPending ? "Saving…" : "Save profile"}
                     </Button>
                   </>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           ) : null}
 
+          {/* ── Company details section ─────────────────────── */}
           {isEmployer ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>Company profile</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+            <div className="rounded-lg border border-border bg-card">
+              <div className="border-b px-6 py-4">
+                <h2 className="text-base font-semibold text-foreground">Company details</h2>
+              </div>
+              <div className="space-y-4 px-6 py-5">
                 {employerProfile.isLoading ? (
                   <Skeleton className="h-40 w-full" />
                 ) : (
                   <>
+                    {/* Company Logo Upload (Cloudinary) */}
+                    <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-background shadow-xs">
+                          {companyLogoUrl ? (
+                            <img
+                              src={companyLogoUrl}
+                              alt="Company logo preview"
+                              className="h-full w-full object-contain p-1"
+                            />
+                          ) : (
+                            <Building2 className="h-8 w-8 text-muted-foreground/50" />
+                          )}
+                        </div>
+                        <div className="space-y-0.5">
+                          <p className="text-sm font-medium text-foreground">Company Logo</p>
+                          <p className="text-xs text-muted-foreground">
+                            PNG, JPG, WEBP or SVG up to 5 MB. Hosted on Cloudinary.
+                          </p>
+                        </div>
+                      </div>
+                      <div>
+                        <input
+                          ref={logoInputRef}
+                          type="file"
+                          accept=".png,.jpg,.jpeg,.webp,.svg"
+                          className="hidden"
+                          onChange={(e) => void handleLogoSelected(e.target.files?.[0])}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={uploadingLogo}
+                          onClick={() => logoInputRef.current?.click()}
+                        >
+                          {uploadingLogo ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Uploading…
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="mr-2 h-4 w-4" />
+                              {companyLogoUrl ? "Change logo" : "Upload logo"}
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="space-y-1.5">
                         <Label htmlFor="companyName">Company name</Label>
@@ -350,21 +427,23 @@ export default function ProfilePage() {
                       />
                     </div>
                     <Button disabled={saveEmployer.isPending} onClick={() => saveEmployer.mutate()}>
-                      <Save /> {saveEmployer.isPending ? "Saving…" : "Save company profile"}
+                      <Save className="h-4 w-4" />
+                      {saveEmployer.isPending ? "Saving…" : "Save company details"}
                     </Button>
                   </>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           ) : null}
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+          {/* ── Change password ─────────────────────────────── */}
+          <div className="rounded-lg border border-border bg-card">
+            <div className="border-b px-6 py-4">
+              <h2 className="flex items-center gap-2 text-base font-semibold text-foreground">
                 <KeyRound className="h-4 w-4" /> Change password
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+              </h2>
+            </div>
+            <div className="space-y-4 px-6 py-5">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="current">Current password</Label>
@@ -390,20 +469,21 @@ export default function ProfilePage() {
                 disabled={changePassword.isPending || !currentPassword || newPassword.length < 8}
                 onClick={() => changePassword.mutate()}
               >
-                <KeyRound /> Update password
+                <KeyRound className="h-4 w-4" /> Update password
               </Button>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
 
+        {/* ── Right sidebar: account card ─────────────────── */}
         <aside className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+          <div className="rounded-lg border border-border bg-card">
+            <div className="border-b px-5 py-4">
+              <h2 className="flex items-center gap-2 text-base font-semibold text-foreground">
                 <UserCog className="h-4 w-4" /> Account
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+              </h2>
+            </div>
+            <div className="space-y-4 px-5 py-5">
               <div className="space-y-1.5">
                 <Label htmlFor="fullName">Full name</Label>
                 <Input
@@ -429,7 +509,7 @@ export default function ProfilePage() {
               </div>
               {employerProfile.data ? (
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Employer approval</span>
+                  <span className="text-muted-foreground">Company approval</span>
                   <Badge variant={employerProfile.data.isApproved ? "success" : "warning"}>
                     {employerProfile.data.isApproved ? "Approved" : "Pending review"}
                   </Badge>
@@ -440,24 +520,24 @@ export default function ProfilePage() {
                 disabled={saveAccount.isPending}
                 onClick={() => saveAccount.mutate()}
               >
-                <Save /> Save account details
+                <Save className="h-4 w-4" /> Save account details
               </Button>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
           {isSeeker && skills.length ? (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Skill snapshot</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
+            <div className="rounded-lg border border-border bg-card">
+              <div className="border-b px-5 py-4">
+                <h2 className="text-base font-semibold text-foreground">Skill snapshot</h2>
+              </div>
+              <div className="space-y-3 px-5 py-4">
                 <SkillChips skills={skills} limit={12} />
                 <p className="flex items-start gap-2 text-xs text-muted-foreground">
                   <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                   Match scores are recalculated from these skills on every application.
                 </p>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           ) : null}
         </aside>
       </div>

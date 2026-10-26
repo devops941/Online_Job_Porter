@@ -18,13 +18,13 @@ interface JobCardProps {
 
 export function JobCard({ job, match, saved, onToggleSave, savingDisabled }: JobCardProps) {
   return (
-    <Card className="transition-shadow hover:shadow-md">
+    <Card className="transition-colors hover:border-border/80 hover:bg-muted/20">
       <CardContent className="space-y-3 p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 space-y-1">
             <Link
               to={`/jobs/${job.id}`}
-              className="line-clamp-1 font-semibold hover:text-primary hover:underline"
+              className="line-clamp-1 font-semibold hover:text-primary"
             >
               {job.title}
             </Link>
@@ -64,10 +64,10 @@ export function JobCard({ job, match, saved, onToggleSave, savingDisabled }: Job
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline">{titleCase(job.employmentType)}</Badge>
-          <Badge variant="secondary">{titleCase(job.workMode)}</Badge>
-          {job.category ? <Badge variant="info">{job.category.name}</Badge> : null}
-          <span className="text-sm font-medium">
+          <Badge variant="outline" className="text-[11px]">{titleCase(job.employmentType)}</Badge>
+          <Badge variant="secondary" className="text-[11px]">{titleCase(job.workMode)}</Badge>
+          {job.category ? <Badge variant="info" className="text-[11px]">{job.category.name}</Badge> : null}
+          <span className="text-sm font-medium text-foreground">
             {formatSalary(job.salaryMin, job.salaryMax, job.currency)}
           </span>
         </div>

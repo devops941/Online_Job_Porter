@@ -4,7 +4,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Eye, ShieldCheck, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -16,8 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { AppShell } from "@/components/layout/app-shell";
-import { EmptyState, PageHeader, SkillChips } from "@/components/shared/page-parts";
-import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState, PageHeader, SkillChips, TableSkeleton } from "@/components/shared/page-parts";
 import { apiErrorMessage } from "@/lib/api";
 import { jobApi } from "@/lib/api-client";
 import { formatDate, formatSalary, titleCase } from "@/lib/utils";
@@ -50,7 +48,7 @@ export default function AdminModerationPage() {
   const reject = useMutation({
     mutationFn: () => jobApi.moderate(rejecting!.id, "rejected", reason || undefined),
     onSuccess: () => {
-      toast.success("Job rejected — the employer has been notified");
+      toast.success("Job rejected — the company has been notified");
       setRejecting(null);
       setReason("");
       invalidate();
@@ -62,15 +60,11 @@ export default function AdminModerationPage() {
     <AppShell>
       <PageHeader
         title="Job moderation"
-        description="Approve or reject employer submissions before they go live."
+        description="Approve or reject company submissions before they go live."
       />
 
       {pending.isLoading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 3 }).map((_, index) => (
-            <Skeleton key={index} className="h-40 w-full" />
-          ))}
-        </div>
+        <TableSkeleton rows={4} />
       ) : pending.isError ? (
         <EmptyState
           icon={ShieldCheck}
@@ -80,58 +74,101 @@ export default function AdminModerationPage() {
           onAction={() => void pending.refetch()}
         />
       ) : pending.data?.length ? (
-        <div className="space-y-3">
-          {pending.data.map((job) => (
-            <Card key={job.id}>
-              <CardContent className="space-y-3 p-5">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0 space-y-1">
-                    <Link
-                      to={`/jobs/${job.id}`}
-                      className="font-medium hover:text-primary hover:underline"
-                    >
-                      {job.title}
-                    </Link>
-                    <p className="text-sm text-muted-foreground">
-                      {job.company?.name ?? "—"} · {job.location} ·{" "}
-                      {titleCase(job.employmentType)} · {titleCase(job.workMode)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Submitted {formatDate(job.createdAt)} ·{" "}
-                      {formatSalary(job.salaryMin, job.salaryMax, job.currency)}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 flex-wrap items-center gap-2">
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link to={`/jobs/${job.id}`}>
-                        <Eye /> Preview
-                      </Link>
-                    </Button>
-                    <Button
-                      size="sm"
-                      disabled={approve.isPending}
-                      onClick={() => approve.mutate(job)}
-                    >
-                      <Check /> Approve
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => {
-                        setRejecting(job);
-                        setReason("");
-                      }}
-                    >
-                      <X /> Reject
-                    </Button>
-                  </div>
-                </div>
-
-                <p className="line-clamp-3 text-sm text-muted-foreground">{job.description}</p>
-                {job.skills?.length ? <SkillChips skills={job.skills} limit={10} /> : null}
-              </CardContent>
-            </Card>
-          ))}
+        <div className="rounded-lg border bg-card">
+          <div className="border-b px-5 py-3.5">
+            <p className="text-sm font-semibold text-foreground">
+              Pending review
+              <span className="ml-2 rounded-full bg-warning/15 px-2 py-0.5 text-xs font-medium text-warning">
+                {pending.data.length}
+              </span>
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[680px] text-sm">
+              <thead>
+                <tr className="border-b bg-muted/40 text-left">
+                  <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Job title
+                  </th>
+                  <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Company
+                  </th>
+                  <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Details
+                  </th>
+                  <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Submitted
+                  </th>
+                  <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {pending.data.map((job) => (
+                  <tr key={job.id} className="hover:bg-muted/40">
+                    <td className="px-5 py-4 align-top">
+                      <div className="space-y-1">
+                        <Link
+                          to={`/jobs/${job.id}`}
+                          className="font-medium text-foreground hover:text-primary hover:underline"
+                        >
+                          {job.title}
+                        </Link>
+                        {job.skills?.length ? (
+                          <SkillChips skills={job.skills} limit={5} />
+                        ) : null}
+                      </div>
+                    </td>
+                    <td className="px-5 py-4 align-top">
+                      <span className="font-medium">{job.company?.name ?? "—"}</span>
+                    </td>
+                    <td className="px-5 py-4 align-top text-muted-foreground">
+                      <div className="space-y-0.5 text-xs">
+                        <p>{job.location}</p>
+                        <p>
+                          {titleCase(job.employmentType)} · {titleCase(job.workMode)}
+                        </p>
+                        <p>{formatSalary(job.salaryMin, job.salaryMax, job.currency)}</p>
+                      </div>
+                    </td>
+                    <td className="px-5 py-4 align-top text-xs text-muted-foreground">
+                      {formatDate(job.createdAt)}
+                    </td>
+                    <td className="px-5 py-4 align-top">
+                      <div className="flex justify-end gap-1.5">
+                        <Button variant="ghost" size="sm" asChild>
+                          <Link to={`/jobs/${job.id}`}>
+                            <Eye className="h-3.5 w-3.5" />
+                            Preview
+                          </Link>
+                        </Button>
+                        <Button
+                          size="sm"
+                          disabled={approve.isPending}
+                          onClick={() => approve.mutate(job)}
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                          Approve
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => {
+                            setRejecting(job);
+                            setReason("");
+                          }}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                          Reject
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : (
         <EmptyState
@@ -146,7 +183,7 @@ export default function AdminModerationPage() {
           <DialogHeader>
             <DialogTitle>Reject job post</DialogTitle>
             <DialogDescription>
-              Give the employer a reason so they can fix and resubmit “{rejecting?.title}”.
+              Give the company a reason so they can fix and resubmit "{rejecting?.title}".
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-1.5">

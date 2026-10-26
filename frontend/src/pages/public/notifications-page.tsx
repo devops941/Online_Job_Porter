@@ -5,17 +5,18 @@ import { Bell, BellOff, Check, ExternalLink, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AppShell } from "@/components/layout/app-shell";
-import { EmptyState, PageHeader } from "@/components/shared/page-parts";
-import { TableSkeleton } from "@/components/shared/page-parts";
+import { EmptyState, PageHeader, TableSkeleton } from "@/components/shared/page-parts";
 import { apiErrorMessage } from "@/lib/api";
 import { notificationApi } from "@/lib/api-client";
 import { cn, timeAgo, titleCase } from "@/lib/utils";
 import type { Notification } from "@/types";
 
-const TYPE_VARIANTS: Record<string, "default" | "info" | "success" | "warning" | "destructive" | "secondary"> = {
+const TYPE_VARIANTS: Record<
+  string,
+  "default" | "info" | "success" | "warning" | "destructive" | "secondary"
+> = {
   info: "info",
   application: "default",
   status_update: "warning",
@@ -73,7 +74,7 @@ export default function NotificationsPage() {
             disabled={markAll.isPending || unreadCount === 0}
             onClick={() => markAll.mutate()}
           >
-            <Check /> Mark all read
+            <Check className="h-3.5 w-3.5" /> Mark all read
           </Button>
         }
       />
@@ -98,51 +99,66 @@ export default function NotificationsPage() {
       ) : (
         <div className="space-y-2">
           {items.map((item) => (
-            <Card key={item.id} className={cn(!item.isRead && "border-primary/40 bg-primary/5")}>
-              <CardContent className="flex items-start gap-3 p-4">
-                <div className="rounded-md bg-muted p-2">
-                  <Bell className="h-4 w-4 text-muted-foreground" />
-                </div>
-                <div className="min-w-0 flex-1 space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-medium">{item.title}</p>
-                    <Badge variant={TYPE_VARIANTS[item.type] ?? "secondary"}>
-                      {titleCase(item.type)}
-                    </Badge>
-                    {!item.isRead ? <Badge variant="default">New</Badge> : null}
-                  </div>
-                  <p className="text-sm text-muted-foreground">{item.message}</p>
-                  <p className="text-xs text-muted-foreground">{timeAgo(item.createdAt)}</p>
-                </div>
-                <div className="flex shrink-0 items-center gap-1">
-                  {item.link ? (
-                    <Button variant="ghost" size="icon" asChild aria-label="Open link">
-                      <Link to={item.link}>
-                        <ExternalLink className="h-4 w-4" />
-                      </Link>
-                    </Button>
-                  ) : null}
+            <div
+              key={item.id}
+              className={cn(
+                "flex items-start gap-3 rounded-lg border border-border bg-card px-4 py-3.5 transition-colors",
+                !item.isRead && "border-primary/40 bg-primary/5",
+              )}
+            >
+              {/* Icon */}
+              <div className="mt-0.5 rounded-md bg-muted p-2 shrink-0">
+                <Bell className="h-4 w-4 text-muted-foreground" />
+              </div>
+
+              {/* Content */}
+              <div className="min-w-0 flex-1 space-y-0.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-medium text-foreground">{item.title}</p>
+                  <Badge variant={TYPE_VARIANTS[item.type] ?? "secondary"} className="text-[11px]">
+                    {titleCase(item.type)}
+                  </Badge>
                   {!item.isRead ? (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label="Mark as read"
-                      onClick={() => markRead.mutate(item.id)}
-                    >
-                      <Check className="h-4 w-4" />
-                    </Button>
+                    <Badge variant="default" className="text-[11px]">
+                      New
+                    </Badge>
                   ) : null}
+                </div>
+                <p className="text-sm text-muted-foreground">{item.message}</p>
+                <p className="text-xs text-muted-foreground">{timeAgo(item.createdAt)}</p>
+              </div>
+
+              {/* Actions */}
+              <div className="flex shrink-0 items-center gap-1">
+                {item.link ? (
+                  <Button variant="ghost" size="icon" className="h-7 w-7" asChild aria-label="Open link">
+                    <Link to={item.link}>
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </Link>
+                  </Button>
+                ) : null}
+                {!item.isRead ? (
                   <Button
                     variant="ghost"
                     size="icon"
-                    aria-label="Delete notification"
-                    onClick={() => remove.mutate(item.id)}
+                    className="h-7 w-7"
+                    aria-label="Mark as read"
+                    onClick={() => markRead.mutate(item.id)}
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Check className="h-3.5 w-3.5" />
                   </Button>
-                </div>
-              </CardContent>
-            </Card>
+                ) : null}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  aria-label="Delete notification"
+                  onClick={() => remove.mutate(item.id)}
+                >
+                  <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                </Button>
+              </div>
+            </div>
           ))}
         </div>
       )}

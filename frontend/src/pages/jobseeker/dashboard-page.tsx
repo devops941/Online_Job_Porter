@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
   Bookmark,
-  Briefcase,
   CalendarClock,
   FileText,
   Gauge,
@@ -20,15 +19,22 @@ import {
   YAxis,
 } from "recharts";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { AppShell } from "@/components/layout/app-shell";
 import { EmptyState, PageHeader, StatCard } from "@/components/shared/page-parts";
-import { ApplicationStatusBadge, MatchScoreBadge } from "@/components/shared/status-badges";
+import {
+  ApplicationStatusBadge,
+  MatchScoreBadge,
+} from "@/components/shared/status-badges";
+import {
+  JobListItem,
+  JobListItemSkeleton,
+} from "@/components/jobs/job-list-item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiErrorMessage } from "@/lib/api";
 import { dashboardApi, jobApi } from "@/lib/api-client";
 import { formatDateTime, titleCase } from "@/lib/utils";
+import type { Job } from "@/types";
 
 const STATUS_COLORS: Record<string, string> = {
   applied: "#0ea5e9",
@@ -94,12 +100,13 @@ export default function JobSeekerDashboard() {
         action={
           <Button asChild>
             <Link to="/jobs">
-              Find jobs <ArrowRight />
+              Find jobs <ArrowRight className="ml-1.5 h-4 w-4" />
             </Link>
           </Button>
         }
       />
 
+      {/* Stat tiles */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Applications" value={data.totals.applications} icon={FileText} />
         <StatCard label="Saved jobs" value={data.totals.savedJobs} icon={Bookmark} />
@@ -112,12 +119,14 @@ export default function JobSeekerDashboard() {
         />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-        <Card>
-          <CardHeader>
-            <CardTitle>Application pipeline</CardTitle>
-          </CardHeader>
-          <CardContent>
+      {/* Pipeline chart + Profile strength */}
+      <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+        {/* Application pipeline */}
+        <div className="rounded-lg border bg-card">
+          <div className="border-b px-5 py-3.5">
+            <h2 className="text-sm font-semibold text-foreground">Application pipeline</h2>
+          </div>
+          <div className="px-5 py-4">
             {chartData.length ? (
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={chartData} margin={{ left: -20, right: 8 }}>
@@ -125,12 +134,13 @@ export default function JobSeekerDashboard() {
                   <YAxis allowDecimals={false} tickLine={false} axisLine={false} fontSize={12} />
                   <Tooltip
                     contentStyle={{
-                      borderRadius: 8,
+                      borderRadius: 6,
                       border: "1px solid hsl(var(--border))",
                       fontSize: 12,
+                      boxShadow: "none",
                     }}
                   />
-                  <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                  <Bar dataKey="count" radius={[3, 3, 0, 0]}>
                     {chartData.map((entry) => (
                       <Cell key={entry.key} fill={STATUS_COLORS[entry.key] ?? "#6366f1"} />
                     ))}
@@ -142,15 +152,17 @@ export default function JobSeekerDashboard() {
                 No applications yet — start applying to see your pipeline here.
               </p>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Profile strength</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
+        {/* Right column */}
+        <div className="space-y-5">
+          {/* Profile strength */}
+          <div className="rounded-lg border bg-card">
+            <div className="border-b px-5 py-3.5">
+              <h2 className="text-sm font-semibold text-foreground">Profile strength</h2>
+            </div>
+            <div className="space-y-3 px-5 py-4">
               <div className="flex items-end justify-between">
                 <span className="text-3xl font-semibold tabular-nums">
                   {data.profile.completeness}%
@@ -163,107 +175,129 @@ export default function JobSeekerDashboard() {
               <p className="text-xs text-muted-foreground">
                 {data.profile.headline ?? "Add a headline to stand out to employers."}
               </p>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Sparkles className="h-4 w-4 text-primary" /> Recommended for you
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {recommended.isLoading ? (
-                <Skeleton className="h-24 w-full" />
-              ) : recommended.data?.length ? (
-                recommended.data.map((entry) => (
-                  <Link
-                    key={entry.job.id}
-                    to={`/jobs/${entry.job.id}`}
-                    className="block rounded-md border p-3 transition-colors hover:bg-accent"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="line-clamp-1 text-sm font-medium">{entry.job.title}</p>
-                      <MatchScoreBadge score={entry.matchScore} />
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {entry.job.company?.name} · {entry.job.location}
+          {/* Upcoming interviews mini-list */}
+          <div className="rounded-lg border bg-card">
+            <div className="flex items-center justify-between border-b px-5 py-3.5">
+              <h2 className="text-sm font-semibold text-foreground">Upcoming interviews</h2>
+              <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
+                <Link to="/job-seeker/interviews">View all</Link>
+              </Button>
+            </div>
+            <div className="divide-y">
+              {data.upcomingInterviews.length ? (
+                data.upcomingInterviews.map((interview) => (
+                  <div key={interview.id} className="px-5 py-3">
+                    <p className="line-clamp-1 text-sm font-medium text-foreground">
+                      {interview.jobTitle}
                     </p>
-                  </Link>
+                    <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <CalendarClock className="h-3.5 w-3.5 shrink-0" />
+                      {formatDateTime(interview.scheduledAt)} · {titleCase(interview.mode)}
+                    </p>
+                  </div>
                 ))
               ) : (
-                <p className="text-sm text-muted-foreground">
-                  Add skills to your profile to unlock recommendations.
+                <p className="px-5 py-4 text-sm text-muted-foreground">
+                  No interviews scheduled yet.
                 </p>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader className="flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-base">Recent applications</CardTitle>
-            <Button variant="ghost" size="sm" asChild>
-              <Link to="/job-seeker/applications">View all</Link>
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {data.recentApplications.length ? (
-              data.recentApplications.map((application) => (
-                <div
-                  key={application.id}
-                  className="flex items-start justify-between gap-3 rounded-md border p-3"
-                >
-                  <div className="min-w-0">
-                    <p className="line-clamp-1 text-sm font-medium">{application.jobTitle}</p>
-                    <p className="text-xs text-muted-foreground">{application.company}</p>
-                  </div>
-                  <div className="flex shrink-0 flex-col items-end gap-1">
+      {/* Recent applications */}
+      <div className="rounded-lg border bg-card">
+        <div className="flex items-center justify-between border-b px-5 py-3.5">
+          <h2 className="text-sm font-semibold text-foreground">Recent applications</h2>
+          <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
+            <Link to="/job-seeker/applications">View all</Link>
+          </Button>
+        </div>
+        {data.recentApplications.length ? (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-muted/40">
+                <th className="px-5 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Job
+                </th>
+                <th className="hidden px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground sm:table-cell">
+                  Company
+                </th>
+                <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Status
+                </th>
+                <th className="hidden px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground md:table-cell">
+                  Match
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {data.recentApplications.map((application) => (
+                <tr key={application.id} className="hover:bg-muted/40">
+                  <td className="px-5 py-3 font-medium text-foreground">
+                    {application.jobTitle}
+                  </td>
+                  <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">
+                    {application.company}
+                  </td>
+                  <td className="px-4 py-3">
                     <ApplicationStatusBadge status={application.status} />
+                  </td>
+                  <td className="hidden px-4 py-3 md:table-cell">
                     <MatchScoreBadge score={application.matchScore} />
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Nothing yet.{" "}
-                <Link to="/jobs" className="text-primary hover:underline">
-                  Browse jobs
-                </Link>
-              </p>
-            )}
-          </CardContent>
-        </Card>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <div className="px-5 py-6 text-center">
+            <p className="text-sm text-muted-foreground">
+              Nothing yet.{" "}
+              <Link to="/jobs" className="text-primary hover:underline">
+                Browse jobs
+              </Link>
+            </p>
+          </div>
+        )}
+      </div>
 
-        <Card>
-          <CardHeader className="flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-base">Upcoming interviews</CardTitle>
-            <Button variant="ghost" size="sm" asChild>
-              <Link to="/job-seeker/interviews">View all</Link>
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {data.upcomingInterviews.length ? (
-              data.upcomingInterviews.map((interview) => (
-                <div key={interview.id} className="rounded-md border p-3">
-                  <p className="line-clamp-1 text-sm font-medium">{interview.jobTitle}</p>
-                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <CalendarClock className="h-3.5 w-3.5" />
-                    {formatDateTime(interview.scheduledAt)} · {titleCase(interview.mode)}
-                  </p>
-                </div>
-              ))
-            ) : (
-              <EmptyState
-                icon={Briefcase}
-                title="No interviews scheduled"
-                description="Employers will schedule interviews once they shortlist you."
+      {/* AI-recommended jobs */}
+      <div className="rounded-lg border bg-card">
+        <div className="flex items-center justify-between border-b px-5 py-3.5">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <Sparkles className="h-4 w-4 text-primary" />
+            Recommended for you
+          </h2>
+          <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
+            <Link to="/jobs">Browse all</Link>
+          </Button>
+        </div>
+        <div className="p-3 space-y-2">
+          {recommended.isLoading ? (
+            Array.from({ length: 3 }).map((_, index) => (
+              <JobListItemSkeleton key={index} />
+            ))
+          ) : recommended.data?.length ? (
+            recommended.data.map((entry) => (
+              <JobListItem
+                key={entry.job.id}
+                job={{ ...entry.job, matchScore: entry.matchScore, matchedSkills: entry.matchedSkills } as Job}
+                showMatch
               />
-            )}
-          </CardContent>
-        </Card>
+            ))
+          ) : (
+            <div className="py-8 text-center">
+              <p className="text-sm text-muted-foreground">
+                Add skills to your profile to unlock recommendations.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </AppShell>
   );

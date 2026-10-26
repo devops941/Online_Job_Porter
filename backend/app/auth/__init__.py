@@ -1,6 +1,8 @@
 from app.auth.dependencies import (
     CurrentUser,
+    OptionalUser,
     get_current_user,
+    get_optional_user,
     require_admin,
     require_employer,
     require_employer_or_admin,
@@ -17,7 +19,9 @@ from app.auth.security import (
 
 __all__ = [
     "CurrentUser",
+    "OptionalUser",
     "get_current_user",
+    "get_optional_user",
     "require_admin",
     "require_employer",
     "require_employer_or_admin",
